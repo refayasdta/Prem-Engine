@@ -23,3 +23,16 @@ ignored `artifacts/models/elo/`.
 
 See `docs/phase-6/ELO_BASELINE.md` for the split policy, formulas, reference
 results, limitations, and manual setup instructions.
+
+Phase 7 adds a dynamic Poisson attack/defence model, an evaluated Dixon-Coles
+low-score correction, expected goals, normalized scoreline distributions, and
+derived H/D/A probabilities. Train it with the human-readable default report:
+
+```powershell
+.\scripts\train-goal-model.ps1
+```
+
+Use `-OutputFormat json` for machine-readable terminal output. The detailed
+evaluation is always stored under ignored `artifacts/models/goals/`. See
+`docs/phase-7/GOAL_MODEL.md` for formulas, metric definitions, reference results,
+limitations, and manual-training instructions.

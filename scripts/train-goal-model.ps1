@@ -1,6 +1,8 @@
 param(
     [string]$Dataset = "data/processed/historical_training_matches.csv",
-    [string]$ArtifactRoot = "artifacts/models/elo"
+    [string]$ArtifactRoot = "artifacts/models/goals",
+    [ValidateSet("human", "json")]
+    [string]$OutputFormat = "human"
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,7 +34,8 @@ else {
     Join-Path $projectRoot $ArtifactRoot
 }
 
-& $pythonPath (Join-Path $projectRoot "modeling\scripts\train_elo_baseline.py") `
+& $pythonPath (Join-Path $projectRoot "modeling\scripts\train_goal_model.py") `
     --dataset $datasetPath `
-    --artifact-root $artifactPath
+    --artifact-root $artifactPath `
+    --output-format $OutputFormat
 exit $LASTEXITCODE

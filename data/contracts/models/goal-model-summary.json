@@ -1,0 +1,47 @@
+{
+  "artifact_committed": false,
+  "contract_version": "goal-model-reference-v1",
+  "dataset_checksum": "9cee9fad4b81f79a3c665872d7b24de2973d4e4195122813ccb6aabbbfd93929",
+  "dataset_rows": 2280,
+  "deterministic": true,
+  "holdout": {
+    "exact_score_accuracy": 0.11447368421052631,
+    "goal_rmse": 1.1384055095810364,
+    "mean_goal_mae": 0.9149663528624972,
+    "outcome_accuracy": 0.4986842105263158,
+    "outcome_log_loss": 1.0089097515325158,
+    "scoreline_log_loss": 2.9327902475553485
+  },
+  "league_average_baseline": {
+    "exact_score_accuracy": 0.12105263157894737,
+    "goal_rmse": 1.1838245898890754,
+    "mean_goal_mae": 0.9707652354570637,
+    "outcome_log_loss": 1.0803983609486887,
+    "scoreline_log_loss": 3.0091577825324034
+  },
+  "model_checksum": "fe8a19c262b6a0d8aa02e01564f6c109eec2d16e237fa276e6a414967ecf0adc",
+  "model_type": "dynamic_poisson_dixon_coles",
+  "model_version": "goals-v1-156511483a94",
+  "parameter_candidates": 162,
+  "phase_6_elo_benchmark": {
+    "accuracy": 0.5026315789473684,
+    "log_loss": 1.011214879225759
+  },
+  "selected_config": {
+    "base_goal_rate": 1.45,
+    "dixon_coles_rho": 0.0,
+    "home_advantage": 0.18,
+    "learning_rate": 0.03,
+    "score_limit": 10,
+    "season_carryover": 0.95
+  },
+  "split": {
+    "history_seasons": ["2020/21", "2021/22", "2022/23"],
+    "test_seasons": ["2024/25", "2025/26"],
+    "validation_season": "2023/24"
+  },
+  "validation": {
+    "mean_goal_mae": 0.9613610048364374,
+    "scoreline_log_loss": 3.0799267676199635
+  }
+}

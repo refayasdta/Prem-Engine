@@ -41,6 +41,7 @@ docs/
   phase-1/                Feasibility evidence
   phase-2/                Foundation setup
   phase-3/                Domain schema and invariants
+  phase-4/                Provider ingestion and identity resolution
 infra/                    Container and deployment configuration
 ```
 

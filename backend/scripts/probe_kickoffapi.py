@@ -1,31 +1,24 @@
-"""Run a small, read-only KickoffAPI contract probe.
-
-The script records shapes and rate-limit metadata, never response values or the
-API key. It performs at most four requests.
-"""
+"""Run a three-request KickoffAPI v2 contract probe through the audited client."""
 
 from __future__ import annotations
 
+import asyncio
 import json
-import os
 from pathlib import Path
 from typing import Any
 
-import httpx
+from prem_engine_api.config import get_settings
+from prem_engine_api.db.session import create_engine, create_session_factory
+from prem_engine_api.domain.models import ProviderRequest
+from prem_engine_api.providers.kickoffapi.client import KickoffApiClient
+from prem_engine_api.providers.kickoffapi.contracts import validate_endpoint_payload
+from prem_engine_api.providers.raw_storage import LocalRawResponseStore
 
-BASE_URL = os.getenv("KICKOFF_API_BASE_URL", "https://api.kickoffapi.com").rstrip("/")
 OUTPUT = Path("data/contracts/kickoffapi/probe-summary.json")
 PROBES = (
-    ("v2_account_status", "/api/v2/account/status", {}),
-    ("v1_account_status_fallback", "/api/v1/account/status", {}),
-    ("resolve_premier_league", "/api/v2/resolve", {"entity": "league", "legacyId": 39}),
-    ("season_fixture_shape", "/api/v2/fixtures", {"season": 2026, "limit": 1}),
-)
-RATE_HEADERS = (
-    "x-ratelimit-limit",
-    "x-ratelimit-remaining",
-    "x-ratelimit-reset",
-    "x-request-id",
+    ("v2_leagues", "/api/v2/leagues", {"country": "England", "limit": 1}),
+    ("v2_teams", "/api/v2/teams", {"league": "en.1", "limit": 1}),
+    ("v2_fixtures", "/api/v2/fixtures", {"league": "en.1", "season": 2026, "limit": 1}),
 )
 
 
@@ -47,36 +40,41 @@ def describe_shape(value: Any, depth: int = 0) -> Any:
     return type(value).__name__
 
 
-def main() -> None:
-    key = os.getenv("KICKOFF_API_KEY")
-    if not key:
+async def run_probe() -> None:
+    settings = get_settings()
+    if settings.kickoff_api_key is None:
         raise SystemExit("KICKOFF_API_KEY is not configured; no requests were made")
 
+    engine = create_engine(settings)
+    session_factory = create_session_factory(engine)
     results: list[dict[str, Any]] = []
-    with httpx.Client(
-        base_url=BASE_URL,
-        headers={"x-api-key": key, "accept": "application/json"},
-        timeout=20,
-        follow_redirects=False,
-    ) as client:
-        for name, path, params in PROBES:
-            response = client.get(path, params=params)
-            try:
-                payload: Any = response.json()
-            except json.JSONDecodeError:
-                payload = None
-            results.append(
-                {
-                    "name": name,
-                    "path": path,
-                    "status_code": response.status_code,
-                    "content_type": response.headers.get("content-type"),
-                    "rate_limit_headers": {
-                        header: response.headers.get(header) for header in RATE_HEADERS
-                    },
-                    "response_shape": describe_shape(payload),
-                }
-            )
+    try:
+        async with KickoffApiClient(
+            settings=settings,
+            session_factory=session_factory,
+            raw_store=LocalRawResponseStore(settings.raw_data_root),
+        ) as client:
+            for name, endpoint, params in PROBES:
+                captured = await client.get(endpoint, params=params)
+                validate_endpoint_payload(endpoint, captured.payload)
+                async with session_factory() as session:
+                    request = await session.get(ProviderRequest, captured.provider_request_uuid)
+                    if request is None:
+                        raise RuntimeError("probe request ledger row disappeared")
+                    results.append(
+                        {
+                            "name": name,
+                            "endpoint": endpoint,
+                            "status_code": request.response_status,
+                            "rate_limit": request.rate_limit,
+                            "rate_remaining": request.rate_remaining,
+                            "provider_request_id_present": request.provider_request_id is not None,
+                            "contract_valid": True,
+                            "response_shape": describe_shape(captured.payload),
+                        }
+                    )
+    finally:
+        await engine.dispose()
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(
@@ -84,6 +82,10 @@ def main() -> None:
         encoding="utf-8",
     )
     print(f"Wrote sanitized contract shapes to {OUTPUT}")
+
+
+def main() -> None:
+    asyncio.run(run_probe())
 
 
 if __name__ == "__main__":

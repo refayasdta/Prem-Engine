@@ -1,6 +1,7 @@
 """Application configuration loaded exclusively from environment variables."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     kickoff_api_key: SecretStr | None = None
     kickoff_daily_request_limit: int = 100
     kickoff_operational_request_limit: int = 85
+    raw_data_root: Path = Path("data/raw")
 
     model_config = SettingsConfigDict(
         env_file=".env",

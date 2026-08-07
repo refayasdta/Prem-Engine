@@ -32,6 +32,192 @@ class RescheduleOutcome:
     replacement_job_uuid: UUID
 
 
+async def postpone_match(
+    session: AsyncSession,
+    *,
+    match_uuid: UUID,
+    provider_status: str | None,
+    actor: str,
+    observed_at: datetime | None = None,
+) -> bool:
+    """Mark a fixture postponed and void its official prediction until a new date exists."""
+
+    effective_observed_at = observed_at or datetime.now(UTC)
+    match = await session.scalar(
+        select(Match).where(Match.match_uuid == match_uuid).with_for_update()
+    )
+    if match is None:
+        raise MatchNotFoundError(str(match_uuid))
+    if match.status is FixtureStatus.POSTPONED:
+        return False
+
+    current_revision = await session.scalar(
+        select(FixtureScheduleRevision)
+        .where(
+            FixtureScheduleRevision.match_uuid == match_uuid,
+            FixtureScheduleRevision.superseded_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if current_revision is not None:
+        current_revision.superseded_at = effective_observed_at
+    revision_number = (
+        await session.scalar(
+            select(func.coalesce(func.max(FixtureScheduleRevision.revision_number), 0)).where(
+                FixtureScheduleRevision.match_uuid == match_uuid
+            )
+        )
+        or 0
+    ) + 1
+    session.add(
+        FixtureScheduleRevision(
+            match_uuid=match_uuid,
+            revision_number=revision_number,
+            kickoff_at=match.current_kickoff_at,
+            canonical_status=FixtureStatus.POSTPONED,
+            provider_status=provider_status,
+            observed_at=effective_observed_at,
+        )
+    )
+    active_prediction = await session.scalar(
+        select(PredictionVersion)
+        .where(
+            PredictionVersion.match_uuid == match_uuid,
+            PredictionVersion.state.in_((PredictionState.ACTIVE_LOCKED, PredictionState.EVALUATED)),
+        )
+        .with_for_update()
+    )
+    prediction_voided = active_prediction is not None
+    if active_prediction is not None:
+        active_prediction.state = PredictionState.VOIDED
+        active_prediction.voided_at = effective_observed_at
+        active_prediction.void_reason = "fixture_postponed"
+        session.add(
+            LifecycleEvent(
+                aggregate_type="prediction_version",
+                aggregate_uuid=active_prediction.prediction_version_uuid,
+                event_type="prediction_voided",
+                actor=actor,
+                payload={"reason": "fixture_postponed", "match_uuid": str(match_uuid)},
+            )
+        )
+        session.add(
+            JobRun(
+                idempotency_key=f"recalculate_simulated_standings:{match_uuid}:{revision_number}",
+                job_type="recalculate_simulated_standings",
+                status=JobStatus.PENDING,
+                match_uuid=match_uuid,
+                due_at=effective_observed_at,
+                attempt_count=0,
+            )
+        )
+    match.status = FixtureStatus.POSTPONED
+    session.add(
+        LifecycleEvent(
+            aggregate_type="match",
+            aggregate_uuid=match_uuid,
+            event_type="fixture_postponed",
+            actor=actor,
+            payload={"prediction_voided": prediction_voided},
+        )
+    )
+    await session.flush()
+    return prediction_voided
+
+
+async def cancel_match(
+    session: AsyncSession,
+    *,
+    match_uuid: UUID,
+    provider_status: str | None,
+    actor: str,
+    observed_at: datetime | None = None,
+) -> bool:
+    """Cancel a fixture, void its prediction, and do not schedule a replacement."""
+
+    effective_observed_at = observed_at or datetime.now(UTC)
+    match = await session.scalar(
+        select(Match).where(Match.match_uuid == match_uuid).with_for_update()
+    )
+    if match is None:
+        raise MatchNotFoundError(str(match_uuid))
+    if match.status is FixtureStatus.CANCELLED:
+        return False
+
+    current_revision = await session.scalar(
+        select(FixtureScheduleRevision)
+        .where(
+            FixtureScheduleRevision.match_uuid == match_uuid,
+            FixtureScheduleRevision.superseded_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if current_revision is not None:
+        current_revision.superseded_at = effective_observed_at
+    revision_number = (
+        await session.scalar(
+            select(func.coalesce(func.max(FixtureScheduleRevision.revision_number), 0)).where(
+                FixtureScheduleRevision.match_uuid == match_uuid
+            )
+        )
+        or 0
+    ) + 1
+    session.add(
+        FixtureScheduleRevision(
+            match_uuid=match_uuid,
+            revision_number=revision_number,
+            kickoff_at=match.current_kickoff_at,
+            canonical_status=FixtureStatus.CANCELLED,
+            provider_status=provider_status,
+            observed_at=effective_observed_at,
+        )
+    )
+    active_prediction = await session.scalar(
+        select(PredictionVersion)
+        .where(
+            PredictionVersion.match_uuid == match_uuid,
+            PredictionVersion.state.in_((PredictionState.ACTIVE_LOCKED, PredictionState.EVALUATED)),
+        )
+        .with_for_update()
+    )
+    prediction_voided = active_prediction is not None
+    if active_prediction is not None:
+        active_prediction.state = PredictionState.VOIDED
+        active_prediction.voided_at = effective_observed_at
+        active_prediction.void_reason = "fixture_cancelled"
+        session.add(
+            LifecycleEvent(
+                aggregate_type="prediction_version",
+                aggregate_uuid=active_prediction.prediction_version_uuid,
+                event_type="prediction_voided",
+                actor=actor,
+                payload={"reason": "fixture_cancelled", "match_uuid": str(match_uuid)},
+            )
+        )
+        session.add(
+            JobRun(
+                idempotency_key=f"recalculate_simulated_standings:{match_uuid}:{revision_number}",
+                job_type="recalculate_simulated_standings",
+                status=JobStatus.PENDING,
+                match_uuid=match_uuid,
+                due_at=effective_observed_at,
+                attempt_count=0,
+            )
+        )
+    match.status = FixtureStatus.CANCELLED
+    session.add(
+        LifecycleEvent(
+            aggregate_type="match",
+            aggregate_uuid=match_uuid,
+            event_type="fixture_cancelled",
+            actor=actor,
+            payload={"prediction_voided": prediction_voided},
+        )
+    )
+    await session.flush()
+    return prediction_voided
+
+
 async def reschedule_match(
     session: AsyncSession,
     *,

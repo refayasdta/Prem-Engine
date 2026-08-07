@@ -9,7 +9,7 @@ from uuid import UUID
 
 import pytest
 from prem_engine_api.domain.enums import FixtureStatus, PredictionState
-from prem_engine_api.domain.lifecycle import reschedule_match
+from prem_engine_api.domain.lifecycle import cancel_match, reschedule_match
 from prem_engine_api.domain.models import (
     Club,
     Competition,
@@ -124,6 +124,9 @@ async def test_migrated_schema_contains_core_tables(db_session: AsyncSession) ->
         "standings_snapshots",
         "standings_rows",
         "provider_request_budgets",
+        "provider_requests",
+        "identity_review_cases",
+        "competition_external_references",
         "lifecycle_events",
     } <= names
 
@@ -223,3 +226,24 @@ async def test_request_budget_stops_at_operational_limit(db_session: AsyncSessio
             operational_limit=2,
             hard_limit=3,
         )
+
+
+@pytest.mark.asyncio
+async def test_cancelled_match_voids_without_replacement(db_session: AsyncSession) -> None:
+    match, prediction = await seed_locked_match(db_session)
+    voided = await cancel_match(
+        db_session,
+        match_uuid=match.match_uuid,
+        provider_status="CANC",
+        actor="test-suite",
+        observed_at=datetime(2026, 8, 20, tzinfo=UTC),
+    )
+
+    assert voided is True
+    assert match.status is FixtureStatus.CANCELLED
+    assert prediction.state is PredictionState.VOIDED
+    assert prediction.void_reason == "fixture_cancelled"
+    jobs = list(
+        await db_session.scalars(select(JobRun).where(JobRun.match_uuid == match.match_uuid))
+    )
+    assert [job.job_type for job in jobs] == ["recalculate_simulated_standings"]

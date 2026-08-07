@@ -1,0 +1,119 @@
+{
+  "request_count": 3,
+  "probes": [
+    {
+      "name": "v2_leagues",
+      "endpoint": "/api/v2/leagues",
+      "status_code": 200,
+      "rate_limit": 30,
+      "rate_remaining": 29,
+      "provider_request_id_present": true,
+      "response_shape": {
+        "data": {
+          "type": "list",
+          "length": 1,
+          "item": {
+            "id": "str",
+            "name": "str",
+            "country": "str",
+            "type": "str",
+            "logo": "str",
+            "source": "str",
+            "legacyId": "int",
+            "season": "int",
+            "seasons": {
+              "type": "list",
+              "length": 14,
+              "item": "int"
+            }
+          }
+        },
+        "meta": {
+          "count": "int",
+          "total": "int",
+          "cursor": "int",
+          "nextCursor": "str",
+          "source": "str"
+        }
+      },
+      "contract_valid": true
+    },
+    {
+      "name": "v2_teams",
+      "endpoint": "/api/v2/teams",
+      "status_code": 200,
+      "rate_limit": 30,
+      "rate_remaining": 28,
+      "provider_request_id_present": true,
+      "response_shape": {
+        "data": {
+          "type": "list",
+          "length": 1,
+          "item": {
+            "id": "str",
+            "name": "str",
+            "country": "str",
+            "source": "str"
+          }
+        },
+        "meta": {
+          "count": "int",
+          "cursor": "int",
+          "nextCursor": "str",
+          "source": "str"
+        }
+      },
+      "contract_valid": true
+    },
+    {
+      "name": "v2_fixtures",
+      "endpoint": "/api/v2/fixtures",
+      "status_code": 200,
+      "rate_limit": 30,
+      "rate_remaining": 27,
+      "provider_request_id_present": true,
+      "response_shape": {
+        "data": {
+          "type": "list",
+          "length": 1,
+          "item": {
+            "id": "str",
+            "date": "str",
+            "time": "null",
+            "status": {
+              "long": "str",
+              "short": "str",
+              "elapsed": "NoneType"
+            },
+            "league": {
+              "id": "str",
+              "name": "str",
+              "season": "int"
+            },
+            "home": {
+              "id": "str",
+              "name": "str"
+            },
+            "away": {
+              "id": "str",
+              "name": "str"
+            },
+            "score": "null",
+            "round": "str",
+            "group": "null",
+            "notes": "null",
+            "source": "str"
+          }
+        },
+        "meta": {
+          "count": "int",
+          "cursor": "int",
+          "nextCursor": "str",
+          "source": "str",
+          "statusDerived": "bool"
+        }
+      },
+      "contract_valid": true
+    }
+  ]
+}

@@ -7,15 +7,15 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 and 2 are complete. Phase 3 establishes the PostgreSQL domain schema,
-canonical identities, fixture lifecycle, immutable forecast records, separate
-standings snapshots, and provider request-budget enforcement.
+Phases 1 through 3 are complete. Phase 4 establishes audited, quota-aware,
+append-only KickoffAPI ingestion and ambiguity-safe identity resolution.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
 - [Fixture and forecast lifecycle policy](docs/architecture/LIFECYCLE_POLICY.md)
 - [Phase 2 local setup](docs/phase-2/FOUNDATION.md)
 - [Phase 3 domain schema](docs/phase-3/DOMAIN_SCHEMA.md)
+- [Phase 4 data ingestion](docs/phase-4/DATA_INGESTION.md)
 
 ## Development
 

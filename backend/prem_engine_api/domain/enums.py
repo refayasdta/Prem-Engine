@@ -19,6 +19,12 @@ class IdentityReviewState(StrEnum):
     NEEDS_REVIEW = "needs_review"
 
 
+class IdentityReviewStatus(StrEnum):
+    PENDING = "pending"
+    RESOLVED = "resolved"
+    DISMISSED = "dismissed"
+
+
 class PredictionState(StrEnum):
     PENDING = "pending"
     GENERATING = "generating"
@@ -47,3 +53,9 @@ class JobStatus(StrEnum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class ProviderRequestStatus(StrEnum):
+    RESERVED = "reserved"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"

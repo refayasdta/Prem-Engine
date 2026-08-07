@@ -32,8 +32,10 @@ from prem_engine_api.db.base import Base, TimestampMixin
 from prem_engine_api.domain.enums import (
     FixtureStatus,
     IdentityReviewState,
+    IdentityReviewStatus,
     JobStatus,
     PredictionState,
+    ProviderRequestStatus,
     ResultKind,
     StandingsKind,
 )
@@ -53,6 +55,20 @@ class Competition(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(160))
     country_code: Mapped[str] = mapped_column(String(2))
     rules_version: Mapped[str] = mapped_column(String(40), default="premier-league-v1")
+
+
+class CompetitionExternalReference(Base, TimestampMixin):
+    __tablename__ = "competition_external_references"
+    __table_args__ = (UniqueConstraint("provider", "external_competition_id"),)
+
+    reference_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    competition_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("competitions.competition_uuid", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40))
+    external_competition_id: Mapped[str] = mapped_column(String(120))
+    observed_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    observed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Season(Base, TimestampMixin):
@@ -375,15 +391,17 @@ class StandingsRow(Base):
 
 class RawFetch(Base):
     __tablename__ = "raw_fetches"
-    __table_args__ = (UniqueConstraint("provider", "response_checksum"),)
 
     raw_fetch_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    provider_request_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("provider_requests.provider_request_uuid", ondelete="RESTRICT"), unique=True
+    )
     provider: Mapped[str] = mapped_column(String(40), index=True)
     endpoint: Mapped[str] = mapped_column(String(240))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     response_status: Mapped[int] = mapped_column(SmallInteger)
     response_checksum: Mapped[str] = mapped_column(String(64))
-    object_key: Mapped[str] = mapped_column(Text)
+    object_key: Mapped[str] = mapped_column(Text, unique=True)
     schema_version: Mapped[str] = mapped_column(String(40))
 
 
@@ -404,6 +422,59 @@ class ProviderRequestBudget(Base, TimestampMixin):
     request_count: Mapped[int] = mapped_column(Integer, default=0)
     operational_limit: Mapped[int] = mapped_column(Integer, default=85)
     hard_limit: Mapped[int] = mapped_column(Integer, default=100)
+
+
+class ProviderRequest(Base):
+    __tablename__ = "provider_requests"
+
+    provider_request_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    endpoint: Mapped[str] = mapped_column(String(240))
+    query_parameters: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    status: Mapped[ProviderRequestStatus] = mapped_column(
+        Enum(ProviderRequestStatus, name="provider_request_status", values_callable=enum_values),
+        index=True,
+    )
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    response_status: Mapped[int | None] = mapped_column(SmallInteger)
+    rate_limit: Mapped[int | None] = mapped_column(Integer)
+    rate_remaining: Mapped[int | None] = mapped_column(Integer)
+    rate_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    provider_request_id: Mapped[str | None] = mapped_column(String(160))
+    error_code: Mapped[str | None] = mapped_column(String(120))
+
+
+class IdentityReviewCase(Base, TimestampMixin):
+    __tablename__ = "identity_review_cases"
+    __table_args__ = (
+        Index(
+            "uq_identity_review_pending_external",
+            "entity_type",
+            "provider",
+            "external_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    review_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    entity_type: Mapped[str] = mapped_column(String(40))
+    provider: Mapped[str] = mapped_column(String(40))
+    external_id: Mapped[str] = mapped_column(String(120))
+    status: Mapped[IdentityReviewStatus] = mapped_column(
+        Enum(IdentityReviewStatus, name="identity_review_status", values_callable=enum_values),
+        default=IdentityReviewStatus.PENDING,
+        index=True,
+    )
+    provider_name: Mapped[str | None] = mapped_column(String(180))
+    candidate_uuids: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    resolved_uuid: Mapped[UUID | None] = mapped_column(Uuid)
+    resolution_note: Mapped[str | None] = mapped_column(Text)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class JobRun(Base, TimestampMixin):

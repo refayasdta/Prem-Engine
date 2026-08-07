@@ -6,7 +6,9 @@ from typing import Any
 
 from alembic import context
 from prem_engine_api.config import get_settings
-from sqlalchemy import MetaData, pool
+from prem_engine_api.db.base import Base
+from prem_engine_api.domain import models  # noqa: F401
+from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 config = context.config
@@ -14,7 +16,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
-target_metadata = MetaData()
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

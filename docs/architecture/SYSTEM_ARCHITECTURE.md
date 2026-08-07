@@ -22,7 +22,7 @@ flowchart LR
     Local --> DB
 ```
 
-## Repository layout for Phase 2
+## Repository layout
 
 ```text
 frontend/                 Next.js App Router application
@@ -39,6 +39,8 @@ data/
 docs/
   architecture/           Architecture and lifecycle decisions
   phase-1/                Feasibility evidence
+  phase-2/                Foundation setup
+  phase-3/                Domain schema and invariants
 infra/                    Container and deployment configuration
 ```
 

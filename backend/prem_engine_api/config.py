@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     log_level: str = "INFO"
-    database_url: str = "postgresql+asyncpg://prem_engine:prem_engine@localhost:5432/prem_engine"
+    database_url: str = "postgresql+asyncpg://prem_engine:prem_engine@127.0.0.1:55432/prem_engine"
     kickoff_api_base_url: str = "https://api.kickoffapi.com"
     kickoff_api_key: SecretStr | None = None
     kickoff_daily_request_limit: int = 100

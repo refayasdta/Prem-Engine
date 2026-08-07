@@ -34,7 +34,11 @@ docker compose up -d postgres
 alembic upgrade head
 ```
 
-No domain migrations exist yet. The first schema migration belongs to Phase 3.
+The initial domain migration was added in Phase 3. Apply it with
+`alembic upgrade head`.
+
+The Compose database binds to host port `55432` by default to avoid collisions
+with an existing PostgreSQL installation. Override it with `POSTGRES_PORT`.
 
 ## API
 

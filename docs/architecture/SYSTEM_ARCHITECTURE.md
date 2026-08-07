@@ -27,11 +27,11 @@ flowchart LR
 ```text
 frontend/                 Next.js App Router application
 backend/
-  app/                    FastAPI application and domain services
+  prem_engine_api/        FastAPI application and domain services
   migrations/             Alembic migrations
   tests/                  API, database, ingestion, and lifecycle tests
 modeling/
-  prem_engine/            Feature, model, evaluation, and simulation packages
+  prem_engine_modeling/   Feature, model, evaluation, and simulation package
   tests/                  Leakage, probability, and reproducibility tests
 data/
   contracts/              Versioned provider and normalized schemas

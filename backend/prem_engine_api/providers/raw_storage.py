@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,15 +31,18 @@ class LocalRawResponseStore:
         provider: str,
         body: bytes,
         fetched_at: datetime | None = None,
+        extension: str = "json",
     ) -> StoredRawResponse:
         """Compress and create a response object without ever overwriting a prior fetch."""
 
+        if not re.fullmatch(r"[a-z0-9]+", extension):
+            raise ValueError("extension must contain only lowercase letters and digits")
         observed_at = fetched_at or datetime.now(UTC)
         checksum = hashlib.sha256(body).hexdigest()
         relative = Path(
             provider,
             observed_at.strftime("%Y/%m/%d"),
-            f"{observed_at.strftime('%H%M%S%f')}_{uuid4()}_{checksum[:12]}.json.gz",
+            f"{observed_at.strftime('%H%M%S%f')}_{uuid4()}_{checksum[:12]}.{extension}.gz",
         )
         destination = self._root / relative
         destination.parent.mkdir(parents=True, exist_ok=True)

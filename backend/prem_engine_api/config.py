@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     kickoff_api_key: SecretStr | None = None
     kickoff_daily_request_limit: int = 100
     kickoff_operational_request_limit: int = 85
+    historical_data_base_url: str = "https://www.football-data.co.uk/mmz4281"
     raw_data_root: Path = Path("data/raw")
+    processed_data_root: Path = Path("data/processed")
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -14,6 +14,11 @@ class FixtureStatus(StrEnum):
     AWARDED = "awarded"
 
 
+class KickoffPrecision(StrEnum):
+    EXACT = "exact"
+    DATE_ONLY = "date_only"
+
+
 class IdentityReviewState(StrEnum):
     RESOLVED = "resolved"
     NEEDS_REVIEW = "needs_review"

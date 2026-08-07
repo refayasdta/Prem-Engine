@@ -34,6 +34,7 @@ from prem_engine_api.domain.enums import (
     IdentityReviewState,
     IdentityReviewStatus,
     JobStatus,
+    KickoffPrecision,
     PredictionState,
     ProviderRequestStatus,
     ResultKind,
@@ -196,6 +197,10 @@ class Match(Base, TimestampMixin):
         default=IdentityReviewState.RESOLVED,
     )
     current_kickoff_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    kickoff_precision: Mapped[KickoffPrecision] = mapped_column(
+        Enum(KickoffPrecision, name="kickoff_precision", values_callable=enum_values),
+        default=KickoffPrecision.EXACT,
+    )
     prediction_due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
@@ -475,6 +480,76 @@ class IdentityReviewCase(Base, TimestampMixin):
     resolved_uuid: Mapped[UUID | None] = mapped_column(Uuid)
     resolution_note: Mapped[str | None] = mapped_column(Text)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class HistoricalSourceFile(Base, TimestampMixin):
+    __tablename__ = "historical_source_files"
+    __table_args__ = (
+        UniqueConstraint("provider", "source_url", "response_checksum"),
+        CheckConstraint("row_count >= 0", name="nonnegative_row_count"),
+    )
+
+    source_file_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    competition_code: Mapped[str] = mapped_column(String(20))
+    season_label: Mapped[str] = mapped_column(String(20), index=True)
+    source_url: Mapped[str] = mapped_column(Text)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    response_checksum: Mapped[str] = mapped_column(String(64))
+    object_key: Mapped[str] = mapped_column(Text, unique=True)
+    schema_fingerprint: Mapped[str] = mapped_column(String(64))
+    row_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ClubAlias(Base, TimestampMixin):
+    __tablename__ = "club_aliases"
+    __table_args__ = (UniqueConstraint("provider", "normalized_alias"),)
+
+    alias_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    club_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("clubs.club_uuid", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40))
+    alias: Mapped[str] = mapped_column(String(160))
+    normalized_alias: Mapped[str] = mapped_column(String(160))
+    reviewed_by: Mapped[str] = mapped_column(String(120))
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class HistoricalMatchRecord(Base, TimestampMixin):
+    __tablename__ = "historical_match_records"
+    __table_args__ = (
+        UniqueConstraint("source_file_uuid", "source_row_number"),
+        CheckConstraint("source_row_number > 1", name="valid_source_row_number"),
+        CheckConstraint(
+            "half_time_home_goals IS NULL OR half_time_home_goals >= 0",
+            name="nonnegative_half_time_home_goals",
+        ),
+        CheckConstraint(
+            "half_time_away_goals IS NULL OR half_time_away_goals >= 0",
+            name="nonnegative_half_time_away_goals",
+        ),
+    )
+
+    historical_match_record_uuid: Mapped[UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid4
+    )
+    source_file_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("historical_source_files.source_file_uuid", ondelete="RESTRICT"), index=True
+    )
+    match_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("matches.match_uuid", ondelete="CASCADE"), index=True
+    )
+    source_row_number: Mapped[int] = mapped_column(Integer)
+    row_checksum: Mapped[str] = mapped_column(String(64))
+    available_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    half_time_home_goals: Mapped[int | None] = mapped_column(SmallInteger)
+    half_time_away_goals: Mapped[int | None] = mapped_column(SmallInteger)
+    referee: Mapped[str | None] = mapped_column(String(160))
+    statistics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    benchmark_odds: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    odds_timing: Mapped[str] = mapped_column(String(40), default="mixed_or_unknown")
+    odds_training_eligible: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class JobRun(Base, TimestampMixin):

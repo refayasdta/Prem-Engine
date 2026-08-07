@@ -1,0 +1,53 @@
+{
+  "contract_version": "historical-coverage-v1",
+  "generated_at": "2026-08-07T05:17:23.904215+00:00",
+  "season_count": 6,
+  "total_rows": 2280,
+  "all_seasons_complete": true,
+  "all_rows_have_exact_kickoff_times": true,
+  "all_rows_have_core_match_statistics": true,
+  "odds_training_eligible_rows": 0,
+  "source_policy": {
+    "raw_csv_redistributed": false,
+    "normalized_training_export_contains_odds": false,
+    "feature_eligibility_rule": "available_after < feature_cutoff_at"
+  },
+  "seasons": [
+    {
+      "season": "2020/21",
+      "rows": 380,
+      "source_checksum": "5afe63f69401457b8354eaacee24f9a3e520b3c3af6329564a9783e20d789c62",
+      "schema_fingerprint": "725c6b9f035ed8d829a1d3f132fe7d97e98e10b0bdebfa27ce44a2fbce060db5"
+    },
+    {
+      "season": "2021/22",
+      "rows": 380,
+      "source_checksum": "335afcbabeb2939fa10ab39ba3e8215072d0b577cb8d0705c1e44c56e934e703",
+      "schema_fingerprint": "725c6b9f035ed8d829a1d3f132fe7d97e98e10b0bdebfa27ce44a2fbce060db5"
+    },
+    {
+      "season": "2022/23",
+      "rows": 380,
+      "source_checksum": "8442792d3b614c94ea3cf381bd2736805889cc1713169035368fff19c3d02380",
+      "schema_fingerprint": "725c6b9f035ed8d829a1d3f132fe7d97e98e10b0bdebfa27ce44a2fbce060db5"
+    },
+    {
+      "season": "2023/24",
+      "rows": 380,
+      "source_checksum": "b2e057b0ed959f198b0f63d2391c01239f3608e6de5db68edab3f88e04d07ff3",
+      "schema_fingerprint": "725c6b9f035ed8d829a1d3f132fe7d97e98e10b0bdebfa27ce44a2fbce060db5"
+    },
+    {
+      "season": "2024/25",
+      "rows": 380,
+      "source_checksum": "d0c8ce4a96d886cf60cf101f570f4a3893844226f91c7bd769eb568c49edbfa4",
+      "schema_fingerprint": "c8e4378df863c95e73ab4a13ef15650613a9991cfd9e71b680cc9d9f141bb26f"
+    },
+    {
+      "season": "2025/26",
+      "rows": 380,
+      "source_checksum": "3e3a8352f9ada6789c508d6ca184424421fed56a30400904a4a327c583407e62",
+      "schema_fingerprint": "143169f2881e16acbf723450b0e7ae85747e2a69f91308ef5b7d9320e604ccee"
+    }
+  ]
+}

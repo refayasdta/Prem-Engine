@@ -7,6 +7,9 @@ from collections.abc import AsyncIterator
 
 import pytest_asyncio
 from prem_engine_api.config import get_settings
+from prem_engine_api.db.base import Base
+from prem_engine_api.domain import models  # noqa: F401
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
@@ -21,6 +24,8 @@ async def db_session() -> AsyncIterator[AsyncSession]:
         transaction = await connection.begin()
         session = AsyncSession(bind=connection, expire_on_commit=False)
         try:
+            table_names = ", ".join(f'"{table.name}"' for table in Base.metadata.sorted_tables)
+            await connection.execute(text(f"TRUNCATE TABLE {table_names} CASCADE"))
             yield session
         finally:
             await session.close()

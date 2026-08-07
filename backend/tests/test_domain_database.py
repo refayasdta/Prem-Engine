@@ -127,6 +127,9 @@ async def test_migrated_schema_contains_core_tables(db_session: AsyncSession) ->
         "provider_requests",
         "identity_review_cases",
         "competition_external_references",
+        "historical_source_files",
+        "historical_match_records",
+        "club_aliases",
         "lifecycle_events",
     } <= names
 

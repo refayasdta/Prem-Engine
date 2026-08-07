@@ -1,0 +1,52 @@
+source_alias,canonical_name,short_name,active
+Arsenal,Arsenal,Arsenal,true
+Aston Villa,Aston Villa,Aston Villa,true
+Barnsley,Barnsley,Barnsley,false
+Birmingham,Birmingham City,Birmingham,false
+Blackburn,Blackburn Rovers,Blackburn,false
+Blackpool,Blackpool,Blackpool,false
+Bolton,Bolton Wanderers,Bolton,false
+Bournemouth,AFC Bournemouth,Bournemouth,true
+Bradford,Bradford City,Bradford,false
+Brentford,Brentford,Brentford,true
+Brighton,Brighton & Hove Albion,Brighton,true
+Burnley,Burnley,Burnley,true
+Cardiff,Cardiff City,Cardiff,false
+Charlton,Charlton Athletic,Charlton,false
+Chelsea,Chelsea,Chelsea,true
+Coventry,Coventry City,Coventry,false
+Crystal Palace,Crystal Palace,Crystal Palace,true
+Derby,Derby County,Derby,false
+Everton,Everton,Everton,true
+Fulham,Fulham,Fulham,true
+Huddersfield,Huddersfield Town,Huddersfield,false
+Hull,Hull City,Hull,false
+Ipswich,Ipswich Town,Ipswich,false
+Leeds,Leeds United,Leeds,true
+Leicester,Leicester City,Leicester,false
+Liverpool,Liverpool,Liverpool,true
+Luton,Luton Town,Luton,false
+Man City,Manchester City,Man City,true
+Man United,Manchester United,Man United,true
+Middlesbrough,Middlesbrough,Middlesbrough,false
+Newcastle,Newcastle United,Newcastle,true
+Norwich,Norwich City,Norwich,false
+Nott'm Forest,Nottingham Forest,Nott'm Forest,true
+Oldham,Oldham Athletic,Oldham,false
+Portsmouth,Portsmouth,Portsmouth,false
+QPR,Queens Park Rangers,QPR,false
+Reading,Reading,Reading,false
+Sheffield United,Sheffield United,Sheffield Utd,false
+Sheffield Weds,Sheffield Wednesday,Sheffield Wed,false
+Southampton,Southampton,Southampton,false
+Stoke,Stoke City,Stoke,false
+Sunderland,Sunderland,Sunderland,true
+Swansea,Swansea City,Swansea,false
+Swindon,Swindon Town,Swindon,false
+Tottenham,Tottenham Hotspur,Tottenham,true
+Watford,Watford,Watford,false
+West Brom,West Bromwich Albion,West Brom,false
+West Ham,West Ham United,West Ham,true
+Wigan,Wigan Athletic,Wigan,false
+Wimbledon,Wimbledon,Wimbledon,false
+Wolves,Wolverhampton Wanderers,Wolves,true

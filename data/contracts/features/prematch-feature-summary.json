@@ -1,0 +1,31 @@
+{
+  "contract_version": "prematch-feature-reference-v1",
+  "cutoff_violation_count": 0,
+  "deterministic": true,
+  "export_committed": false,
+  "feature_contract_version": "prematch-features-v1",
+  "feature_count": 74,
+  "feature_dataset_checksum": "b90c1eb11def7c0fe31d347b95cb9a029e4b1697d8de552f9fff4df3f2a3e6ba",
+  "identity_and_provenance_column_count": 12,
+  "prediction_lead_hours": 24,
+  "quality": {
+    "cold_start_row_count": 20,
+    "insufficient_five_match_form_row_count": 91,
+    "missing_away_form_row_count": 12,
+    "missing_away_rest_row_count": 12,
+    "missing_home_form_row_count": 16,
+    "missing_home_rest_row_count": 16
+  },
+  "row_count": 2280,
+  "rows_by_season": {
+    "2020/21": 380,
+    "2021/22": 380,
+    "2022/23": 380,
+    "2023/24": 380,
+    "2024/25": 380,
+    "2025/26": 380
+  },
+  "source_dataset_checksum": "9cee9fad4b81f79a3c665872d7b24de2973d4e4195122813ccb6aabbbfd93929",
+  "target_column_count": 3,
+  "total_column_count": 89
+}

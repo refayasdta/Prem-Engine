@@ -7,10 +7,11 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 7 are complete. The platform foundation now includes audited,
+Phases 1 through 8 are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
-Poisson goal and scoreline model.
+Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
+pipeline.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -21,6 +22,7 @@ Poisson goal and scoreline model.
 - [Phase 5 historical data](docs/phase-5/HISTORICAL_DATA.md)
 - [Phase 6 Elo baseline](docs/phase-6/ELO_BASELINE.md)
 - [Phase 7 goal model](docs/phase-7/GOAL_MODEL.md)
+- [Phase 8 pre-match features](docs/phase-8/FEATURE_ENGINEERING.md)
 
 ## Development
 

@@ -36,3 +36,15 @@ Use `-OutputFormat json` for machine-readable terminal output. The detailed
 evaluation is always stored under ignored `artifacts/models/goals/`. See
 `docs/phase-7/GOAL_MODEL.md` for formulas, metric definitions, reference results,
 limitations, and manual-training instructions.
+
+Phase 8 replays the historical dataset with an exact 24-hour prediction cutoff
+and exports 74 model-ready Elo, goal-strength, rolling-form, venue, schedule,
+promotion, confidence, and missingness features. Generate and validate it with:
+
+```powershell
+.\scripts\build-features.ps1
+```
+
+The default human report explains coverage and cutoff safety. Use `-OutputFormat
+json` for automation and `-Force` to explicitly replace an existing ignored
+export. See `docs/phase-8/FEATURE_ENGINEERING.md` for the complete contract.

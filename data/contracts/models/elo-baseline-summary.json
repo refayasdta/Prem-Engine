@@ -1,0 +1,87 @@
+{
+  "contract_version": "elo-baseline-summary-v1",
+  "reference_run_at": "2026-08-07T06:27:53.293395+00:00",
+  "model_type": "three_outcome_davidson_elo",
+  "model_version": "elo-v1-d3b412bf866f",
+  "deterministic": true,
+  "dataset": {
+    "rows": 2280,
+    "sha256": "9cee9fad4b81f79a3c665872d7b24de2973d4e4195122813ccb6aabbbfd93929",
+    "seasons": [
+      "2020/21",
+      "2021/22",
+      "2022/23",
+      "2023/24",
+      "2024/25",
+      "2025/26"
+    ]
+  },
+  "split": {
+    "rating_history": ["2020/21", "2021/22", "2022/23"],
+    "parameter_validation": "2023/24",
+    "untouched_holdout": ["2024/25", "2025/26"]
+  },
+  "parameter_candidates": 432,
+  "selected_config": {
+    "k_factor": 20.0,
+    "home_advantage": 80.0,
+    "draw_propensity": 0.65,
+    "margin_weight": 0.5,
+    "season_carryover": 0.95,
+    "initial_rating": 1500.0,
+    "rating_scale": 400.0
+  },
+  "validation_metrics": {
+    "matches": 380,
+    "accuracy": 0.5710526315789474,
+    "log_loss": 0.9290376631753569,
+    "brier_score": 0.5475587308573838,
+    "ranked_probability_score": 0.19031289514154648,
+    "expected_calibration_error": 0.0159702155061666
+  },
+  "holdout_metrics": {
+    "matches": 760,
+    "accuracy": 0.5026315789473684,
+    "log_loss": 1.011214879225759,
+    "brier_score": 0.6071206259603589,
+    "ranked_probability_score": 0.20692211065736238,
+    "expected_calibration_error": 0.04359901207878371
+  },
+  "holdout_by_season": {
+    "2024/25": {
+      "matches": 380,
+      "accuracy": 0.5210526315789473,
+      "log_loss": 0.9925947813622934,
+      "brier_score": 0.5943228441690214
+    },
+    "2025/26": {
+      "matches": 380,
+      "accuracy": 0.4842105263157895,
+      "log_loss": 1.029834977089226,
+      "brier_score": 0.6199184077516964
+    }
+  },
+  "comparators": {
+    "historical_league_prior": {
+      "accuracy": 0.41710526315789476,
+      "log_loss": 1.0832658395486077,
+      "brier_score": 0.6559522281417827
+    },
+    "uniform_one_third": {
+      "accuracy": 0.41710526315789476,
+      "log_loss": 1.0986122886681295,
+      "brier_score": 0.6666666666666741
+    }
+  },
+  "artifact": {
+    "filename": "model.joblib",
+    "bytes": 1706,
+    "sha256": "4e0e587653901f4c456347e46bd1e32a831bd1b26489284a7c5197ce2cbbc9f7",
+    "committed_to_git": false
+  },
+  "feature_policy": {
+    "betting_odds_used": false,
+    "post_match_statistics_used_as_current_match_features": false,
+    "result_updates_require": "available_after < next_fixture_kickoff"
+  }
+}

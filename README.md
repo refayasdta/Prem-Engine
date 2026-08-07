@@ -7,9 +7,9 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 5 are complete. The platform foundation now includes audited,
+Phases 1 through 6 are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
-pipeline with six complete Premier League seasons ready for modeling.
+pipeline and a chronologically evaluated three-outcome Elo baseline.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -18,6 +18,7 @@ pipeline with six complete Premier League seasons ready for modeling.
 - [Phase 3 domain schema](docs/phase-3/DOMAIN_SCHEMA.md)
 - [Phase 4 data ingestion](docs/phase-4/DATA_INGESTION.md)
 - [Phase 5 historical data](docs/phase-5/HISTORICAL_DATA.md)
+- [Phase 6 Elo baseline](docs/phase-6/ELO_BASELINE.md)
 
 ## Development
 

@@ -1,0 +1,75 @@
+{
+  "contract_version": "api-football-coverage-audit-v1",
+  "audit_date": "2026-08-10",
+  "sanitized": true,
+  "league_id": 39,
+  "request_count": 23,
+  "approved_request_ceiling": 24,
+  "training_started": false,
+  "seasons": [
+    {
+      "season": 2020,
+      "free_plan_access": false,
+      "reason": "season_not_available_on_free_plan"
+    },
+    {
+      "season": 2021,
+      "free_plan_access": false,
+      "reason": "season_not_available_on_free_plan"
+    },
+    {
+      "season": 2022,
+      "free_plan_access": true,
+      "declared_lineup_coverage": true,
+      "declared_player_statistics_coverage": true,
+      "finished_fixture_count": 380,
+      "sample": {
+        "team_lineup_count": 2,
+        "starter_count": 22,
+        "substitute_count": 18,
+        "team_player_statistic_group_count": 2,
+        "player_statistic_record_count": 40
+      }
+    },
+    {
+      "season": 2023,
+      "free_plan_access": true,
+      "declared_lineup_coverage": true,
+      "declared_player_statistics_coverage": true,
+      "finished_fixture_count": 380,
+      "sample": {
+        "team_lineup_count": 2,
+        "starter_count": 22,
+        "substitute_count": 18,
+        "team_player_statistic_group_count": 2,
+        "player_statistic_record_count": 40
+      }
+    },
+    {
+      "season": 2024,
+      "free_plan_access": true,
+      "declared_lineup_coverage": true,
+      "declared_player_statistics_coverage": true,
+      "finished_fixture_count": 380,
+      "sample": {
+        "status": "not_completed_after_minute_window_reached"
+      }
+    },
+    {
+      "season": 2025,
+      "free_plan_access": false,
+      "reason": "season_not_available_on_free_plan"
+    }
+  ],
+  "rate_limit_observation": {
+    "minute_window_reached": true,
+    "further_requests_made_after_limit": false
+  },
+  "conclusion": {
+    "historical_lineups_observed": true,
+    "historical_player_statistics_observed": true,
+    "free_plan_sufficient_for_complete_training_window": false,
+    "paid_season_access_requires_validation": true,
+    "training_gate_opened": false
+  }
+}

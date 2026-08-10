@@ -30,6 +30,7 @@ adequate.
 - [Phase 8 pre-match features](docs/phase-8/FEATURE_ENGINEERING.md)
 - [Phase 9 calibrated tabular model](docs/phase-9/CALIBRATED_TABULAR_MODEL.md)
 - [Phase 10 player impact and availability](docs/phase-10/PLAYER_IMPACT_AVAILABILITY.md)
+- [API-Football historical player coverage audit](data/contracts/api-football/README.md)
 
 ## Development
 

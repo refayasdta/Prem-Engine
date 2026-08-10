@@ -43,3 +43,16 @@ def test_player_probe_records_only_shapes_and_templates() -> None:
     assert "Private Value" not in str(shape)
     assert module.coverage_state(payload) == "available"
     assert module.coverage_state({"data": []}) == "empty"
+
+
+def test_api_football_probe_records_shapes_without_values() -> None:
+    module = load_probe_module("probe_api_football_coverage")
+    payload = {"player": {"id": 123, "name": "Private Value"}, "statistics": []}
+
+    shape = module.describe_shape(payload)
+
+    assert shape == {
+        "player": {"id": "int", "name": "str"},
+        "statistics": {"type": "list", "length": 0, "item": None},
+    }
+    assert "Private Value" not in str(shape)

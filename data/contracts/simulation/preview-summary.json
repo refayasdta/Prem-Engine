@@ -1,0 +1,26 @@
+{
+  "checksum": "040c5348d2b9ef4e56ae8913c12f56cbe1e3411fcc2222929fed0d79e5bb8bc3",
+  "event_count": 74,
+  "fixture_kind": "fixed-fictional-preview",
+  "invariants": [
+    "same-input-and-seed-same-payload",
+    "goal-subset-of-shots-on-target",
+    "shots-on-target-subset-of-shots",
+    "event-counts-match-statistics",
+    "rolling-score-matches-goal-events",
+    "full-time-score-matches-result",
+    "checksum-covers-entire-simulation"
+  ],
+  "random_seed": 13082026,
+  "presentation": {
+    "duration_seconds": 60,
+    "first_half_seconds": 25,
+    "half_time_seconds": 10,
+    "second_half_seconds": 25
+  },
+  "result": {
+    "away_goals": 2,
+    "home_goals": 0
+  },
+  "schema_version": "stored-simulation-v1"
+}

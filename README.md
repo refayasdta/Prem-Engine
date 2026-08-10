@@ -7,7 +7,7 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 12 are complete. The platform foundation now includes audited,
+Phases 1 through 13 are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
 Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
@@ -27,7 +27,10 @@ the promotion gate, so Phase 7 remains the approved forecasting benchmark.
 Phase 12 adds calibrated detailed-statistic models and safe fallbacks for
 half-time goals, shots, shots on target, corners, fouls, and cards. Seven of 14
 targets passed their holdout gates; possession and provider xG remain explicitly
-unsupported because the historical export has no labels for them.
+unsupported because the historical export has no labels for them. Phase 13 turns
+the locked goal and statistic forecasts into one deterministic, checksum-protected
+match payload whose score, event feed, lineups, and statistics agree exactly. A
+browser preview replays that stored payload without regenerating the match.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -47,6 +50,7 @@ unsupported because the historical export has no labels for them.
 - [Player-impact training result](data/contracts/models/PLAYER_MODEL_TRAINING_RESULT.md)
 - [Phase 11 ensemble evaluation](docs/phase-11/ENSEMBLE_MODEL.md)
 - [Phase 12 detailed statistics](docs/phase-12/DETAILED_STATISTICS.md)
+- [Phase 13 quick-match simulation](docs/phase-13/QUICK_MATCH_SIMULATION.md)
 
 ## Development
 
@@ -87,3 +91,17 @@ Run the deterministic convex-weight evaluation with:
 
 The reference run evaluated 286 blends and rejected the selected ensemble. Its
 artifact is retained locally for audit but is not approved for official use.
+
+## Phase 13 simulation preview
+
+Regenerate the fixed fictional preview payload, then run the frontend:
+
+```powershell
+.\scripts\generate-simulation-preview.ps1
+cd frontend
+pnpm dev
+```
+
+Open `http://localhost:3000/simulation-preview`. Play, pause, seek, and restart
+the fixed one-minute replay. Refreshing the page loads the same seed and checksum,
+so it cannot silently produce a different match.

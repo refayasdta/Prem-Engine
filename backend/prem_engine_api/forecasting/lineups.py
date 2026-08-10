@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import or_, select
@@ -129,9 +131,47 @@ def _profile(
     )
 
 
-def _select(candidates: list[_Candidate]) -> tuple[list[_Candidate], list[_Candidate]]:
+def _recent_formation_requirements(
+    performance_rows: list[Any],
+) -> tuple[dict[PlayerPosition, int], str, float]:
+    """Infer the expected position-group shape from up to five observed starting XIs."""
+
+    by_match: dict[UUID, list[PlayerMatchPerformance]] = {}
+    match_order: dict[UUID, datetime] = {}
+    for performance, match, _ in performance_rows:
+        if performance.started is True:
+            by_match.setdefault(match.match_uuid, []).append(performance)
+            match_order[match.match_uuid] = match.current_kickoff_at
+    shapes: list[tuple[datetime, int, int, int]] = []
+    for match_uuid, starters in by_match.items():
+        positions = [_position(item.position) for item in starters]
+        if len(starters) != 11 or positions.count("GK") != 1:
+            continue
+        defenders = positions.count("DEF")
+        midfielders = positions.count("MID")
+        forwards = positions.count("FWD")
+        if defenders + midfielders + forwards != 10:
+            continue
+        shapes.append((match_order[match_uuid], defenders, midfielders, forwards))
+    recent = sorted(shapes)[-5:]
+    if not recent:
+        return FORMATION_REQUIREMENTS.copy(), "4-3-3", 0.0
+    labels = [(defenders, midfielders, forwards) for _, defenders, midfielders, forwards in recent]
+    counts = Counter(labels)
+    selected = max(enumerate(labels), key=lambda indexed: (counts[indexed[1]], indexed[0]))[1]
+    defenders, midfielders, forwards = selected
+    return (
+        {"GK": 1, "DEF": defenders, "MID": midfielders, "FWD": forwards},
+        f"{defenders}-{midfielders}-{forwards}",
+        len(recent) / 5,
+    )
+
+
+def _select(
+    candidates: list[_Candidate], requirements: dict[PlayerPosition, int]
+) -> tuple[list[_Candidate], list[_Candidate]]:
     starters: list[_Candidate] = []
-    for position, count in FORMATION_REQUIREMENTS.items():
+    for position, count in requirements.items():
         positioned = sorted(
             (item for item in candidates if item.position == position),
             key=lambda item: (item.selection_score, item.evidence, str(item.player_uuid)),
@@ -201,23 +241,25 @@ async def expected_lineup_for_club(
 ) -> tuple[TeamLineup, datetime | None]:
     """Use only observations available before cutoff and never create fake players."""
 
-    performance_rows = (
-        await session.execute(
-            select(PlayerMatchPerformance, Match, Player)
-            .join(Match, Match.match_uuid == PlayerMatchPerformance.match_uuid)
-            .join(Player, Player.player_uuid == PlayerMatchPerformance.player_uuid)
-            .where(
-                PlayerMatchPerformance.club_uuid == club_uuid,
-                PlayerMatchPerformance.available_after < cutoff,
-                Match.current_kickoff_at >= kickoff_at - RECENT_SQUAD_WINDOW,
-                Match.current_kickoff_at < kickoff_at,
+    performance_rows = list(
+        (
+            await session.execute(
+                select(PlayerMatchPerformance, Match, Player)
+                .join(Match, Match.match_uuid == PlayerMatchPerformance.match_uuid)
+                .join(Player, Player.player_uuid == PlayerMatchPerformance.player_uuid)
+                .where(
+                    PlayerMatchPerformance.club_uuid == club_uuid,
+                    PlayerMatchPerformance.available_after < cutoff,
+                    Match.current_kickoff_at >= kickoff_at - RECENT_SQUAD_WINDOW,
+                    Match.current_kickoff_at < kickoff_at,
+                )
+                .order_by(
+                    PlayerMatchPerformance.available_after,
+                    PlayerMatchPerformance.player_uuid,
+                )
             )
-            .order_by(
-                PlayerMatchPerformance.available_after,
-                PlayerMatchPerformance.player_uuid,
-            )
-        )
-    ).all()
+        ).all()
+    )
     histories: dict[UUID, list[PlayerMatchPerformance]] = {}
     players: dict[UUID, Player] = {}
     latest_used: datetime | None = None
@@ -312,16 +354,18 @@ async def expected_lineup_for_club(
         )
         if profile is not None and profile.availability_probability > 0.0:
             candidates.append(profile)
-    starters, substitutes = _select(candidates)
+    requirements, formation, formation_confidence = _recent_formation_requirements(performance_rows)
+    starters, substitutes = _select(candidates, requirements)
     used_numbers: set[int] = set()
     confidence = sum(item.evidence for item in starters) / 11
     confidence *= sum(item.availability_probability for item in starters) / 11
+    confidence *= 0.7 + 0.3 * formation_confidence
     return (
         TeamLineup(
             club_uuid=club_uuid,
             club_name=club_name,
             short_name=short_name,
-            formation="4-3-3",
+            formation=formation,
             starters=_to_contract(starters, used_numbers=used_numbers),
             substitutes=_to_contract(substitutes, used_numbers=used_numbers),
             confidence=max(0.0, min(1.0, confidence)),

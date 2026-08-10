@@ -7,7 +7,10 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
-from prem_engine_api.api.forecasts import build_match_forecast_response
+from prem_engine_api.api.forecasts import (
+    build_match_forecast_response,
+    list_upcoming_match_responses,
+)
 from prem_engine_api.domain.enums import FixtureStatus, JobStatus
 from prem_engine_api.domain.models import (
     Club,
@@ -388,4 +391,21 @@ async def test_expected_lineup_uses_canonical_player_names_without_inventing_ids
     assert {player.player_uuid for player in selected} <= canonical_ids
     assert all(player.name.startswith("Canonical Player") for player in selected)
     assert all(player.shirt_number_source == "presentation_slot" for player in selected)
+    assert lineup.formation == "5-5-0"
     assert latest_used is not None and latest_used < cutoff
+
+
+@pytest.mark.asyncio
+async def test_upcoming_matches_return_only_canonical_database_fixtures(
+    db_session: AsyncSession,
+) -> None:
+    match, home, away, due = await _seed_due_match(db_session)
+
+    upcoming = await list_upcoming_match_responses(
+        db_session, now=due - timedelta(days=1), limit=10
+    )
+
+    assert len(upcoming) == 1
+    assert upcoming[0].match_uuid == match.match_uuid
+    assert upcoming[0].home.name == home.canonical_name
+    assert upcoming[0].away.name == away.canonical_name

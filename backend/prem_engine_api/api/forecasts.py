@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -93,6 +93,56 @@ class MatchForecastResponse(BaseModel):
     prediction: PredictionResponse | None
     presentation: PresentationResponse
     simulation: SimulationResponse | None
+
+
+class UpcomingMatchResponse(BaseModel):
+    match_uuid: UUID
+    fixture_status: str
+    kickoff_at: datetime
+    prediction_due_at: datetime
+    home: ClubResponse
+    away: ClubResponse
+
+
+async def list_upcoming_match_responses(
+    session: AsyncSession, *, now: datetime, limit: int
+) -> list[UpcomingMatchResponse]:
+    home_club = aliased(Club)
+    away_club = aliased(Club)
+    rows = (
+        await session.execute(
+            select(Match, home_club, away_club)
+            .join(home_club, home_club.club_uuid == Match.home_club_uuid)
+            .join(away_club, away_club.club_uuid == Match.away_club_uuid)
+            .where(
+                Match.current_kickoff_at >= now,
+                Match.status.in_((FixtureStatus.SCHEDULED, FixtureStatus.POSTPONED)),
+            )
+            .order_by(Match.current_kickoff_at, Match.match_uuid)
+            .limit(limit)
+        )
+    ).all()
+    return [
+        UpcomingMatchResponse(
+            match_uuid=match.match_uuid,
+            fixture_status=match.status.value,
+            kickoff_at=match.current_kickoff_at,
+            prediction_due_at=match.prediction_due_at,
+            home=ClubResponse(
+                club_uuid=home.club_uuid,
+                name=home.canonical_name,
+                short_name=home.short_name,
+                crest_url=home.crest_url,
+            ),
+            away=ClubResponse(
+                club_uuid=away.club_uuid,
+                name=away.canonical_name,
+                short_name=away.short_name,
+                crest_url=away.crest_url,
+            ),
+        )
+        for match, home, away in rows
+    ]
 
 
 def _visible_statistics(events: list[dict[str, Any]]) -> dict[str, int]:
@@ -284,6 +334,14 @@ async def build_match_forecast_response(
             final_statistics=simulation.statistics if clock.complete else None,
         ),
     )
+
+
+@router.get("/upcoming", response_model=list[UpcomingMatchResponse])
+async def upcoming_matches(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    limit: Annotated[int, Query(ge=1, le=20)] = 10,
+) -> list[UpcomingMatchResponse]:
+    return await list_upcoming_match_responses(session, now=datetime.now(UTC), limit=limit)
 
 
 @router.get("/{match_uuid}/forecast", response_model=MatchForecastResponse)

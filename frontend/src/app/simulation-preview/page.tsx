@@ -12,7 +12,7 @@ export default function SimulationPreviewPage() {
           Prem Engine
         </Link>
         <div>
-          <span>Phase 13 laboratory</span>
+          <span>Fictional Phase 13 laboratory data</span>
           <Link href="/">Exit preview</Link>
         </div>
       </nav>

@@ -7,7 +7,7 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 14 are complete. The platform foundation now includes audited,
+Phases 1 through 15 are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
 Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
@@ -36,7 +36,14 @@ expiring database leases, time-safe feature snapshots, real canonical player
 lineups, atomic forecast locking, postponement-safe replacement jobs, and a
 public synchronized replay endpoint. The endpoint never exposes future events or
 the simulated final result before the shared one-minute presentation reaches
-full-time.
+full-time. Phase 15 adds 34 leakage-safe observed-shape and measurable
+style-proxy features. Its readiness build covers all 2,280 fixtures and passed
+the training gate. The user's manual run completed, but the tactical candidate
+was worse than Phase 7 on every primary holdout measure and was rejected. The
+frontend now lists real
+canonical fixtures and displays their real clubs, crests, expected players, and
+stored synchronized simulations under `/matches/{match_uuid}`. The fictional
+Phase 13 route remains clearly separated as a developer lab.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -58,6 +65,8 @@ full-time.
 - [Phase 12 detailed statistics](docs/phase-12/DETAILED_STATISTICS.md)
 - [Phase 13 quick-match simulation](docs/phase-13/QUICK_MATCH_SIMULATION.md)
 - [Phase 14 automated forecast lifecycle](docs/phase-14/AUTOMATED_FORECAST_LIFECYCLE.md)
+- [Phase 15 tactical inference and real-data UI](docs/phase-15/TACTICAL_INFERENCE_AND_REAL_UI.md)
+- [Phase 15 tactical training result](data/contracts/models/TACTICAL_MODEL_TRAINING_RESULT.md)
 
 ## Development
 
@@ -126,3 +135,21 @@ Production scheduling will invoke the same one-shot command every minute. A
 cycle creates any missing current-revision jobs, leases a bounded due batch, and
 generates each complete prediction transactionally. The browser reads
 `GET /api/matches/{match_uuid}/forecast`; users never press a simulate button.
+
+## Phase 15 tactical workflow
+
+Build the audited 134-feature dataset, then run the model training yourself:
+
+```powershell
+.\scripts\build-tactical-features.ps1 -Force
+.\scripts\train-tactical-model.ps1
+```
+
+The reference build passed readiness at 97.5% style coverage and 58.7%
+observed-shape coverage. The manual candidate run was rejected with 1.0794
+holdout log loss versus Phase 7's 1.0089. Phase 7 therefore remains the official
+outcome and scoreline model.
+
+For the real-data browser path, start FastAPI on port 8000 and the frontend on
+port 3000. The homepage lists canonical upcoming fixtures and links to
+`/matches/{match_uuid}`. The fictional `/simulation-preview` is only a lab.

@@ -99,3 +99,17 @@ not improve both MAE and Poisson deviance. Run it with:
 The artifact returns non-negative means and 90% plausible ranges. Possession and
 provider xG are explicitly unsupported because the historical source has no
 labels for them. See `docs/phase-12/DETAILED_STATISTICS.md`.
+
+Phase 15 appends 34 prior-only formation, continuity, shot, corner, and foul
+features to the base and player feature contracts. It never assigns subjective
+tactical labels. Build the readiness export and then train manually with:
+
+```powershell
+.\scripts\build-tactical-features.ps1 -Force
+.\scripts\train-tactical-model.ps1
+```
+
+The human report compares the candidate with Phase 6 Elo and Phase 7 goals on
+the untouched holdout. The reference candidate was rejected at 1.0794 log loss
+versus Phase 7's 1.0089, so Phase 7 remains official. See
+`docs/phase-15/TACTICAL_INFERENCE_AND_REAL_UI.md`.

@@ -1,8 +1,26 @@
 {
   "approved_for_official_forecasts": false,
   "artifact_committed": false,
+  "artifact_sha256": "a0ce7b0938ea15c9f8740bff6087fd7eb1fcb251fcb471c9ce45872edb9291a1",
   "base_feature_checksum": "c7efd672800219234b27ca2bf782f7e7e1ebd73af2f7bd4ab5996c4f5018fb3d",
-  "contract_version": "player-impact-readiness-v2",
+  "benchmarks": {
+    "phase_6_elo": {
+      "accuracy": 0.502632,
+      "brier_score": 0.607121,
+      "expected_calibration_error": 0.043599,
+      "log_loss": 1.011215,
+      "ranked_probability_score": 0.206922
+    },
+    "phase_7_goals": {
+      "accuracy": 0.498684,
+      "brier_score": 0.604277,
+      "expected_calibration_error": 0.018339,
+      "log_loss": 1.00891,
+      "ranked_probability_score": 0.206306
+    }
+  },
+  "candidate_count": 12,
+  "contract_version": "player-impact-training-summary-v1",
   "coverage_gate": {
     "covered_fixture_count": 2189,
     "covered_fixture_rate": 0.960088,
@@ -12,12 +30,25 @@
     "reason": "Historical player coverage passes the Phase 10 training gate.",
     "trainable": true
   },
+  "created_at": "2026-08-10T06:16:32.512592+00:00",
   "deterministic": true,
   "feature_contract": {
     "base_feature_count": 74,
     "player_feature_count": 26,
     "player_feature_dataset_checksum": "e513e8c03429c299616a2097f9e9c3e335a4398975e40dcae157c3a45f955223",
     "total_feature_count": 100
+  },
+  "holdout": {
+    "accuracy": 0.455263,
+    "brier_score": 0.654787,
+    "expected_calibration_error": 0.086527,
+    "log_loss": 1.093111,
+    "ranked_probability_score": 0.226559,
+    "sample_count": 760,
+    "seasons": [
+      "2024/25",
+      "2025/26"
+    ]
   },
   "historical_context": {
     "availability_observation_count": 0,
@@ -26,8 +57,27 @@
     "transfer_observation_count": 0,
     "unknown_start_records": 20878
   },
+  "model_type": "multinomial_logistic",
+  "model_version": "player-impact-v1-c5b7fdfa272d",
   "official_model_allowed": false,
   "player_context_checksum": "840622bfe72199e45c98498d026fe3228f642aa6896d82871ec91dc0c35b1a44",
+  "player_feature_influences": [
+    {
+      "feature": "home_replacement_dropoff",
+      "importance": 0.168037
+    },
+    {
+      "feature": "away_expected_lineup_confidence",
+      "importance": 0.164867
+    }
+  ],
+  "promotion": {
+    "best_benchmark": "Phase 7 goals",
+    "log_loss_improvement": -0.084201,
+    "reason": "Did not improve holdout log loss over the best established benchmark.",
+    "status": "rejected"
+  },
+  "random_seed": 42,
   "reference_fixture_count": 2280,
   "reference_seasons": [
     "2020/21",
@@ -37,7 +87,12 @@
     "2024/25",
     "2025/26"
   ],
-  "training_run": false,
-  "training_status": "ready_for_manual_training",
+  "selected_candidate": {
+    "candidate_id": "logistic-c-0.03",
+    "family": "multinomial_logistic",
+    "regularization_c": 0.03
+  },
+  "training_run": true,
+  "training_status": "completed_rejected",
   "unknown_availability_probability": 0.75
 }

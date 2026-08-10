@@ -18,8 +18,9 @@ availability and transfer features, plus a coverage-gated training path. Its
 reference model was initially blocked because historical player coverage was
 not adequate. A follow-up public historical FPL audit and import added 66,665
 player-match performances across all 2,280 target fixtures. The normalized
-feature dataset now passes its coverage gate at 96.0%. Manual training remains
-a separate approved step.
+feature dataset passed its coverage gate at 96.0%. The approved manual training
+run completed, but the player-impact candidate performed worse than the Phase 7
+goal model on the untouched holdout and was rejected for official forecasts.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -36,6 +37,7 @@ a separate approved step.
 - [API-Football historical player coverage audit](data/contracts/api-football/README.md)
 - [Historical FPL player-data audit](data/contracts/fpl-historical/README.md)
 - [Player-feature training readiness](data/contracts/models/PLAYER_FEATURE_READINESS.md)
+- [Player-impact training result](data/contracts/models/PLAYER_MODEL_TRAINING_RESULT.md)
 
 ## Development
 
@@ -60,6 +62,8 @@ training with:
 .\scripts\train-player-impact-model.ps1
 ```
 
-Both commands default to human-readable output. Training exits cleanly with a
+The commands default to human-readable output. Training exits cleanly with a
 detailed blocked-readiness report until the historical coverage gate passes; it
-does not manufacture or promote a sparse model.
+does not manufacture or promote a sparse model. The 2026-08-10 reference run
+passed the coverage gate but failed the promotion gate, so Phase 7 goals remains
+the official benchmark.

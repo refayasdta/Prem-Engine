@@ -7,8 +7,9 @@ Date: 2026-08-10
 Phase 10 implements the complete player-context ingestion, feature, expected-
 lineup, training, calibration, artifact, and reporting path. The historical FPL
 import now passes the explicit player-strength coverage gate. The reference
-model has still **not been trained**; no Phase 10 model is approved for official
-forecasts.
+model was trained manually on 2026-08-10 and was **rejected** by the promotion
+gate because it performed worse than the Phase 7 goal model on the untouched
+holdout. No Phase 10 model is approved for official forecasts.
 
 This is a safety decision, not a hidden implementation gap. Training a player-
 impact model on empty or selectively available histories would create convincing
@@ -140,12 +141,19 @@ Phase 9:
 - Player features: 26.
 - Available normalized historical player performances: 66,665.
 - Adequately covered fixtures: 2,189 of 2,280 (96.0%).
-- Training status: `ready_for_manual_training`.
+- Training status: `completed_rejected`.
 - Official model allowed: false.
-- Generated model artifact: none.
+- Generated model: `player-impact-v1-c5b7fdfa272d` (ignored local audit artifact).
+- Selected candidate: `logistic-c-0.03`.
+- Untouched holdout: 760 fixtures from 2024/25 and 2025/26.
+- Player-model holdout log loss: 1.0931.
+- Best benchmark: Phase 7 goals with holdout log loss 1.0089.
+- Promotion log-loss improvement: -0.0842; promotion rejected.
 
 The reference export exists only as an ignored local audit artifact. The compact,
-committed result is `data/contracts/models/player-impact-summary.json`.
+committed result is `data/contracts/models/player-impact-summary.json`; the
+human-readable interpretation is
+`data/contracts/models/PLAYER_MODEL_TRAINING_RESULT.md`.
 
 ## Manual workflow
 
@@ -159,7 +167,9 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 The preparation script refreshes canonical match identities, rebuilds the base
 features, exports player context, and creates the 100-feature player dataset. It
 does not train a model. After reviewing the readiness report, run the trainer as
-a separate, explicitly approved manual action.
+a separate, explicitly approved manual action. A completed run still does not
+become official automatically: it must pass the untouched-holdout promotion
+gate. The reference run did not pass that gate.
 
 ## Remaining limitations
 

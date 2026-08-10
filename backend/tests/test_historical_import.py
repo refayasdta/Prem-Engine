@@ -132,6 +132,20 @@ async def test_exports_separate_training_data_from_ambiguous_odds(
         alias_registry_path=Path("data/mappings/football-data-clubs.csv"),
         raw_store=LocalRawResponseStore(tmp_path / "raw"),
     )
+    db_session.add(
+        HistoricalSourceFile(
+            provider="historical-fpl",
+            competition_code="EPL",
+            season_label="2020/21",
+            source_url="https://example.test/2020-21/players_raw.csv",
+            retrieved_at=datetime(2026, 8, 10, tzinfo=UTC),
+            response_checksum="f" * 64,
+            object_key="historicalfpl/2026/08/10/players.csv.gz",
+            schema_fingerprint="e" * 64,
+            row_count=700,
+        )
+    )
+    await db_session.flush()
 
     training = await export_training_matches(db_session, tmp_path / "training.csv")
     odds = await export_benchmark_odds(db_session, tmp_path / "odds.csv")

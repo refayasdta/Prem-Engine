@@ -18,8 +18,8 @@ availability and transfer features, plus a coverage-gated training path. Its
 reference model was initially blocked because historical player coverage was
 not adequate. A follow-up public historical FPL audit and import added 66,665
 player-match performances across all 2,280 target fixtures. The normalized
-feature dataset still needs to be rebuilt and reviewed before the player model
-is trained.
+feature dataset now passes its coverage gate at 96.0%. Manual training remains
+a separate approved step.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -35,6 +35,7 @@ is trained.
 - [Phase 10 player impact and availability](docs/phase-10/PLAYER_IMPACT_AVAILABILITY.md)
 - [API-Football historical player coverage audit](data/contracts/api-football/README.md)
 - [Historical FPL player-data audit](data/contracts/fpl-historical/README.md)
+- [Player-feature training readiness](data/contracts/models/PLAYER_FEATURE_READINESS.md)
 
 ## Development
 

@@ -26,6 +26,8 @@ from prem_engine_api.domain.models import (
 )
 from prem_engine_api.historical.contracts import STATISTIC_COLUMNS
 
+FOOTBALL_DATA_PROVIDER = "football-data.co.uk"
+
 TRAINING_COLUMNS = (
     "match_uuid",
     "season",
@@ -89,7 +91,9 @@ def _write_csv(
 async def _latest_source_files(session: AsyncSession) -> tuple[HistoricalSourceFile, ...]:
     sources = list(
         await session.scalars(
-            select(HistoricalSourceFile).order_by(
+            select(HistoricalSourceFile)
+            .where(HistoricalSourceFile.provider == FOOTBALL_DATA_PROVIDER)
+            .order_by(
                 HistoricalSourceFile.season_label,
                 HistoricalSourceFile.retrieved_at.desc(),
                 HistoricalSourceFile.created_at.desc(),

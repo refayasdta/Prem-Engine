@@ -5,9 +5,10 @@ Date: 2026-08-10
 ## Outcome
 
 Phase 10 implements the complete player-context ingestion, feature, expected-
-lineup, training, calibration, artifact, and reporting path. The reference model
-was **not trained** because historical player coverage does not pass the explicit
-minimum gate. No Phase 10 model is approved for official forecasts.
+lineup, training, calibration, artifact, and reporting path. The historical FPL
+import now passes the explicit player-strength coverage gate. The reference
+model has still **not been trained**; no Phase 10 model is approved for official
+forecasts.
 
 This is a safety decision, not a hidden implementation gap. Training a player-
 impact model on empty or selectively available histories would create convincing
@@ -137,9 +138,9 @@ Phase 9:
 - Fixtures: 2,280 across six seasons.
 - Base features: 74.
 - Player features: 26.
-- Available normalized historical player performances: 0.
-- Adequately covered fixtures: 0%.
-- Training status: `blocked_insufficient_historical_player_coverage`.
+- Available normalized historical player performances: 66,665.
+- Adequately covered fixtures: 2,189 of 2,280 (96.0%).
+- Training status: `ready_for_manual_training`.
 - Official model allowed: false.
 - Generated model artifact: none.
 
@@ -148,25 +149,23 @@ committed result is `data/contracts/models/player-impact-summary.json`.
 
 ## Manual workflow
 
-Place normalized files in `data/processed/player_context/`, then run:
+Reproduce every ignored input and readiness artifact with:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-.\scripts\export-player-context.ps1
-.\scripts\build-player-features.ps1
-.\scripts\train-player-impact-model.ps1
+.\scripts\prepare-player-training.ps1
 ```
 
-The exporter writes canonical database observations to the ignored modeling
-inputs. The feature builder prints coverage and creates the 100-feature export.
-The trainer prints either a clear blocked-readiness report or a complete candidate,
-calibration, holdout, influence, promotion, path, and checksum report.
+The preparation script refreshes canonical match identities, rebuilds the base
+features, exports player context, and creates the 100-feature player dataset. It
+does not train a model. After reviewing the readiness report, run the trainer as
+a separate, explicitly approved manual action.
 
 ## Remaining limitations
 
-- Historical player data still needs quota-aware accumulation or an approved
-  additional source before training can occur.
+- Historical 24-hour injury, suspension, and transfer snapshots remain absent.
+  The first player model therefore trains player-strength and expected-lineup
+  effects, while availability-effect columns remain explicit but unobserved.
 - The sampled lineup and fixture-player endpoints returned 404.
 - Injury records are present, but absence of a record cannot confirm fitness.
 - The sampled transfer result was empty.

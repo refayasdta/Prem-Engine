@@ -1,0 +1,128 @@
+{
+  "artifact_committed": false,
+  "artifact_sha256": "6859e2b0a6cd23382b795e68034b29548a6ac0a26fa9f08623cda5306cac4e12",
+  "contract_version": "detailed-statistics-training-summary-v1",
+  "created_at": "2026-08-10T07:15:21.950805+00:00",
+  "deterministic": true,
+  "feature_count": 74,
+  "fixture_count": 2280,
+  "holdout_fixture_count": 760,
+  "holdout_seasons": [
+    "2024/25",
+    "2025/26"
+  ],
+  "model_type": "regularized_poisson_per_target",
+  "model_version": "detailed-statistics-v1-42e73adec486",
+  "official_aggregate_mean_absolute_error": 1.774851,
+  "official_aggregate_mean_poisson_deviance": 1.181948,
+  "raw_model_aggregate_mean_absolute_error": 1.7877,
+  "baseline_aggregate_mean_absolute_error": 1.8327,
+  "promoted_target_count": 7,
+  "target_count": 14,
+  "targets": [
+    {
+      "baseline_mae": 0.691,
+      "model_mae": 0.662,
+      "name": "home_half_time_goals",
+      "official_source": "model",
+      "selected_alpha": 1.0
+    },
+    {
+      "baseline_mae": 0.659,
+      "model_mae": 0.649,
+      "name": "away_half_time_goals",
+      "official_source": "model",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 4.126,
+      "model_mae": 4.178,
+      "name": "home_shots",
+      "official_source": "historical_mean_fallback",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 3.92,
+      "model_mae": 3.507,
+      "name": "away_shots",
+      "official_source": "model",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 1.906,
+      "model_mae": 1.954,
+      "name": "home_shots_on_target",
+      "official_source": "historical_mean_fallback",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 1.742,
+      "model_mae": 1.678,
+      "name": "away_shots_on_target",
+      "official_source": "model",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 2.428,
+      "model_mae": 2.287,
+      "name": "home_corners",
+      "official_source": "model",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 2.264,
+      "model_mae": 2.125,
+      "name": "away_corners",
+      "official_source": "model",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 2.725,
+      "model_mae": 2.713,
+      "name": "home_fouls",
+      "official_source": "historical_mean_fallback",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 2.811,
+      "model_mae": 2.85,
+      "name": "away_fouls",
+      "official_source": "historical_mean_fallback",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 1.066,
+      "model_mae": 1.052,
+      "name": "home_yellow_cards",
+      "official_source": "model",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 1.099,
+      "model_mae": 1.12,
+      "name": "away_yellow_cards",
+      "official_source": "historical_mean_fallback",
+      "selected_alpha": 10.0
+    },
+    {
+      "baseline_mae": 0.107,
+      "model_mae": 0.12,
+      "name": "home_red_cards",
+      "official_source": "historical_mean_fallback",
+      "selected_alpha": 1.0
+    },
+    {
+      "baseline_mae": 0.114,
+      "model_mae": 0.13,
+      "name": "away_red_cards",
+      "official_source": "historical_mean_fallback",
+      "selected_alpha": 10.0
+    }
+  ],
+  "training_run": true,
+  "training_status": "completed",
+  "unsupported_targets": {
+    "possession": "No six-season historical possession labels.",
+    "provider_expected_goals": "No six-season provider-measured expected-goals labels."
+  }
+}

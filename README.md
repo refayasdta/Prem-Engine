@@ -7,7 +7,7 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 11 are complete. The platform foundation now includes audited,
+Phases 1 through 12 are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
 Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
@@ -24,6 +24,10 @@ goal model on the untouched holdout and was rejected for official forecasts.
 Phase 11 then tested 286 chronological convex ensembles across Elo, goals,
 tabular, and player forecasts. Its selected 90% Elo/10% player blend also failed
 the promotion gate, so Phase 7 remains the approved forecasting benchmark.
+Phase 12 adds calibrated detailed-statistic models and safe fallbacks for
+half-time goals, shots, shots on target, corners, fouls, and cards. Seven of 14
+targets passed their holdout gates; possession and provider xG remain explicitly
+unsupported because the historical export has no labels for them.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -42,6 +46,7 @@ the promotion gate, so Phase 7 remains the approved forecasting benchmark.
 - [Player-feature training readiness](data/contracts/models/PLAYER_FEATURE_READINESS.md)
 - [Player-impact training result](data/contracts/models/PLAYER_MODEL_TRAINING_RESULT.md)
 - [Phase 11 ensemble evaluation](docs/phase-11/ENSEMBLE_MODEL.md)
+- [Phase 12 detailed statistics](docs/phase-12/DETAILED_STATISTICS.md)
 
 ## Development
 

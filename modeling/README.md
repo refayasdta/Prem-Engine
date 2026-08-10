@@ -87,3 +87,15 @@ player forecasts. Run its chronological weight selection and calibration with:
 The selected reference blend was also rejected, leaving Phase 7 as the approved
 forecasting benchmark. Scoreline outcome-partition rescaling is implemented for
 any future ensemble that passes promotion. See `docs/phase-11/ENSEMBLE_MODEL.md`.
+
+Phase 12 trains independent regularized Poisson models for 14 supported
+home/away count targets and falls back to historical means wherever a model does
+not improve both MAE and Poisson deviance. Run it with:
+
+```powershell
+.\scripts\train-match-statistics.ps1
+```
+
+The artifact returns non-negative means and 90% plausible ranges. Possession and
+provider xG are explicitly unsupported because the historical source has no
+labels for them. See `docs/phase-12/DETAILED_STATISTICS.md`.

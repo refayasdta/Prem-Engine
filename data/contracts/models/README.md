@@ -27,3 +27,7 @@ Phase 11 adds `ensemble-summary.json`. It records the selected convex weights,
 component and ensemble calibration, holdout metrics, scoreline-reconciliation
 contract, and rejected promotion decision. Full artifacts remain ignored under
 `artifacts/models/ensemble/`.
+
+Phase 12 adds `match-statistics-summary.json`. It records coverage, per-target
+Poisson selection, calibration, holdout comparison, model-or-baseline decisions,
+unsupported targets, and the ignored detailed-statistics artifact identity.

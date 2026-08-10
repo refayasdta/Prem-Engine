@@ -15,11 +15,11 @@ pipeline. Phase 9 also evaluates calibrated tabular classifiers and transparentl
 records that the standalone candidate did not pass the promotion gate against
 Elo and the goal model. Phase 10 adds canonical player context, expected lineups,
 availability and transfer features, plus a coverage-gated training path. Its
-reference model is safely blocked because historical player coverage is not yet
-adequate. A follow-up public historical FPL audit found 66,665 player-match
-performances across all 2,280 target fixtures and approved that source for a
-future player-strength import. No FPL records have yet been imported and the
-player model has not yet been trained.
+reference model was initially blocked because historical player coverage was
+not adequate. A follow-up public historical FPL audit and import added 66,665
+player-match performances across all 2,280 target fixtures. The normalized
+feature dataset still needs to be rebuilt and reviewed before the player model
+is trained.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)

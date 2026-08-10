@@ -38,6 +38,9 @@ from .helpers import six_season_dataset
 
 
 def _write_csv(path: Path, columns: tuple[str, ...], rows: list[dict[str, object]]) -> None:
+    if columns == PERFORMANCE_COLUMNS:
+        for row in rows:
+            row.setdefault("starting_status_source", "observed")
     with path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=columns, lineterminator="\n")
         writer.writeheader()
@@ -235,6 +238,23 @@ def test_player_data_rejects_performance_available_before_kickoff(tmp_path: Path
             availability_path=availability_path,
             transfers_path=transfer_path,
         )
+
+
+def test_player_data_preserves_unknown_historical_start(tmp_path: Path) -> None:
+    performance_path, availability_path, transfer_path, _, _ = _context_files(tmp_path)
+    rows = list(csv.DictReader(performance_path.open("r", encoding="utf-8", newline="")))
+    rows[0]["started"] = ""
+    rows[0]["starting_status_source"] = "unknown"
+    _write_csv(performance_path, PERFORMANCE_COLUMNS, rows)
+
+    context = load_player_context(
+        performances_path=performance_path,
+        availability_path=availability_path,
+        transfers_path=transfer_path,
+    )
+
+    assert context.performances[0].started is None
+    assert context.performances[0].starting_status_source == "unknown"
 
 
 def test_sparse_player_history_blocks_training_before_fit(tmp_path: Path) -> None:

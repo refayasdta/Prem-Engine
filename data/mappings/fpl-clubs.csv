@@ -1,0 +1,29 @@
+source_alias,canonical_name,short_name,active
+Arsenal,Arsenal,Arsenal,true
+Aston Villa,Aston Villa,Aston Villa,true
+Bournemouth,AFC Bournemouth,Bournemouth,true
+Brentford,Brentford,Brentford,true
+Brighton,Brighton & Hove Albion,Brighton,true
+Burnley,Burnley,Burnley,true
+Chelsea,Chelsea,Chelsea,true
+Crystal Palace,Crystal Palace,Crystal Palace,true
+Everton,Everton,Everton,true
+Fulham,Fulham,Fulham,true
+Ipswich,Ipswich Town,Ipswich,false
+Leeds,Leeds United,Leeds,true
+Leicester,Leicester City,Leicester,false
+Liverpool,Liverpool,Liverpool,true
+Luton,Luton Town,Luton,false
+Man City,Manchester City,Man City,true
+Man Utd,Manchester United,Man United,true
+Newcastle,Newcastle United,Newcastle,true
+Norwich,Norwich City,Norwich,false
+Nott'm Forest,Nottingham Forest,Nott'm Forest,true
+Sheffield Utd,Sheffield United,Sheffield Utd,false
+Southampton,Southampton,Southampton,false
+Spurs,Tottenham Hotspur,Tottenham,true
+Sunderland,Sunderland,Sunderland,true
+Watford,Watford,Watford,false
+West Brom,West Bromwich Albion,West Brom,false
+West Ham,West Ham United,West Ham,true
+Wolves,Wolverhampton Wanderers,Wolves,true

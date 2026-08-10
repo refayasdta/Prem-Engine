@@ -41,3 +41,10 @@ The result does not make the full availability model ready. The 2020/21 and
 optional provider rating, and the gameweek records do not preserve reliable
 24-hour historical injury snapshots. Import, canonical identity resolution,
 cutoff-safe normalization, and model training remain separate approved work.
+
+## Import result
+
+The approved import is now complete. See `IMPORT_REPORT.md` for the readable
+integrity report and `import-summary.json` for sanitized machine-readable counts.
+The import added 66,665 unique player-match observations and did not train a
+model.

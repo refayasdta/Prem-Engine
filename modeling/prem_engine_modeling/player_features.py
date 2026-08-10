@@ -156,10 +156,15 @@ def _profile(
     if not history:
         return None
     recency_weights = [0.85 ** (len(history) - index - 1) for index in range(len(history))]
-    start_values = [
-        (0.7 * float(item.started) + 0.3 * min(1.0, item.minutes / 90), weight)
-        for item, weight in zip(history, recency_weights, strict=True)
-    ]
+    start_values = []
+    for item, weight in zip(history, recency_weights, strict=True):
+        minutes_signal = min(1.0, item.minutes / 90)
+        if item.started is None:
+            start_values.append((minutes_signal, weight * 0.6))
+        else:
+            start_values.append(
+                (0.7 * float(item.started) + 0.3 * minutes_signal, weight)
+            )
     starting_probability = _weighted_average(start_values, 0.0)
     rating_values = [
         (item.rating, weight)

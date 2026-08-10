@@ -1,0 +1,22 @@
+{
+  "contract_version": "historical-fpl-player-import-v1",
+  "generated_at": "2026-08-10",
+  "sanitized": true,
+  "model_training_run": false,
+  "source_files_registered": 18,
+  "canonical_fixture_references": 2280,
+  "stable_player_references": 2640,
+  "unique_player_match_performances": 66665,
+  "duplicate_identical_source_rows_skipped": 6,
+  "observed_start_records": 45787,
+  "unknown_start_records": 20878,
+  "availability_before_kickoff_violations": 0,
+  "seasons": [
+    {"season": "2020/21", "fixtures": 380, "players": 524, "performances": 10393, "observed_start_records": 0, "unknown_start_records": 10393},
+    {"season": "2021/22", "fixtures": 380, "players": 537, "performances": 10485, "observed_start_records": 0, "unknown_start_records": 10485},
+    {"season": "2022/23", "fixtures": 380, "players": 554, "performances": 11345, "observed_start_records": 11345, "unknown_start_records": 0},
+    {"season": "2023/24", "fixtures": 380, "players": 570, "performances": 11384, "observed_start_records": 11384, "unknown_start_records": 0},
+    {"season": "2024/25", "fixtures": 380, "players": 562, "performances": 11566, "observed_start_records": 11566, "unknown_start_records": 0},
+    {"season": "2025/26", "fixtures": 380, "players": 537, "performances": 11492, "observed_start_records": 11492, "unknown_start_records": 0}
+  ]
+}

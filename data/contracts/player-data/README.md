@@ -23,6 +23,11 @@ KickoffAPI IDs remain external references and must be resolved before export.
 - Availability and transfer inputs are usable only when `observed_at < cutoff`.
 - An absent injury report is `unknown`, never `available`.
 - One performance row is allowed per match, club, and player.
+- `started` is `1`, `0`, or blank. A blank is paired with
+  `starting_status_source=unknown`; unknown historical starts are never silently
+  converted into substitute appearances.
+- `starting_status_source` is `observed`, `inferred`, or `unknown`. Historical
+  FPL imports use only `observed` or `unknown`.
 - Positions use `goalkeeper`, `defender`, `midfielder`, or `attacker`.
 - Player ratings, if supplied, must be between zero and ten.
 - Generated datasets and model artifacts are not committed.

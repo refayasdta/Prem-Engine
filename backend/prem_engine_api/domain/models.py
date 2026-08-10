@@ -228,6 +228,17 @@ class PlayerMatchPerformance(Base, TimestampMixin):
         UniqueConstraint("match_uuid", "club_uuid", "player_uuid"),
         CheckConstraint("minutes IS NULL OR minutes BETWEEN 0 AND 130", name="valid_minutes"),
         CheckConstraint("rating IS NULL OR rating BETWEEN 0 AND 10", name="valid_rating"),
+        CheckConstraint(
+            "starting_status_source IN ('observed', 'inferred', 'unknown')",
+            name="valid_starting_status_source",
+        ),
+        CheckConstraint(
+            "(source_file_uuid IS NULL AND source_row_number IS NULL AND row_checksum IS NULL) "
+            "OR (source_file_uuid IS NOT NULL AND source_row_number IS NOT NULL "
+            "AND row_checksum IS NOT NULL)",
+            name="complete_performance_provenance",
+        ),
+        UniqueConstraint("source_file_uuid", "source_row_number"),
         Index("ix_player_match_performances_available_after", "available_after"),
     )
 
@@ -243,13 +254,20 @@ class PlayerMatchPerformance(Base, TimestampMixin):
     player_uuid: Mapped[UUID] = mapped_column(
         ForeignKey("players.player_uuid", ondelete="RESTRICT"), index=True
     )
-    started: Mapped[bool] = mapped_column(Boolean, default=False)
+    started: Mapped[bool | None] = mapped_column(Boolean)
+    starting_status_source: Mapped[str] = mapped_column(String(20), default="observed")
     position: Mapped[str | None] = mapped_column(String(40))
     minutes: Mapped[int | None] = mapped_column(SmallInteger)
     rating: Mapped[Decimal | None] = mapped_column(Numeric(4, 2))
     statistics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     available_after: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    provider: Mapped[str] = mapped_column(String(40), default="legacy")
     provider_payload_key: Mapped[str] = mapped_column(Text)
+    source_file_uuid: Mapped[UUID | None] = mapped_column(
+        ForeignKey("historical_source_files.source_file_uuid", ondelete="RESTRICT"), index=True
+    )
+    source_row_number: Mapped[int | None] = mapped_column(Integer)
+    row_checksum: Mapped[str | None] = mapped_column(String(64))
 
 
 class PlayerAvailabilityReport(Base, TimestampMixin):

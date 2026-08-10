@@ -22,6 +22,7 @@ PERFORMANCE_COLUMNS = (
     "player_uuid",
     "position",
     "started",
+    "starting_status_source",
     "minutes",
     "rating",
     "goals",
@@ -58,7 +59,8 @@ class PlayerPerformance:
     opponent_club_uuid: str
     player_uuid: str
     position: PlayerPosition
-    started: bool
+    started: bool | None
+    starting_status_source: Literal["observed", "inferred", "unknown"]
     minutes: int
     rating: float | None
     goals: int
@@ -155,7 +157,8 @@ def load_player_context(
             position = cast(PlayerPosition, row["position"].strip().lower())
             if position not in ("goalkeeper", "defender", "midfielder", "attacker"):
                 raise ValueError
-            started_value = int(row["started"])
+            started_raw = row["started"].strip()
+            started_value = int(started_raw) if started_raw else None
             minutes = int(row["minutes"])
             goals = int(row["goals"])
             assists = int(row["assists"])
@@ -168,8 +171,15 @@ def load_player_context(
         available_after = _aware(
             row["available_after"], field="available_after", row_number=row_number
         )
-        if started_value not in (0, 1) or not 0 <= minutes <= 130:
+        start_source = row["starting_status_source"].strip().lower()
+        if started_value not in (None, 0, 1) or not 0 <= minutes <= 130:
             raise PlayerDataContractError(f"row {row_number}: invalid start flag or minutes")
+        if start_source not in ("observed", "inferred", "unknown"):
+            raise PlayerDataContractError(f"row {row_number}: invalid starting-status source")
+        if (started_value is None) != (start_source == "unknown"):
+            raise PlayerDataContractError(
+                f"row {row_number}: unknown start status and source must agree"
+            )
         if goals < 0 or assists < 0 or (rating is not None and not 0 <= rating <= 10):
             raise PlayerDataContractError(f"row {row_number}: invalid player statistics")
         if available_after < kickoff:
@@ -186,7 +196,10 @@ def load_player_context(
                 opponent_club_uuid=row["opponent_club_uuid"],
                 player_uuid=row["player_uuid"],
                 position=position,
-                started=bool(started_value),
+                started=bool(started_value) if started_value is not None else None,
+                starting_status_source=cast(
+                    Literal["observed", "inferred", "unknown"], start_source
+                ),
                 minutes=minutes,
                 rating=rating,
                 goals=goals,

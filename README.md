@@ -7,7 +7,7 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 13 are complete. The platform foundation now includes audited,
+Phases 1 through 14 are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
 Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
@@ -31,6 +31,12 @@ unsupported because the historical export has no labels for them. Phase 13 turns
 the locked goal and statistic forecasts into one deterministic, checksum-protected
 match payload whose score, event feed, lineups, and statistics agree exactly. A
 browser preview replays that stored payload without regenerating the match.
+Phase 14 adds the automatic T-24 lifecycle: revision-scoped job scheduling,
+expiring database leases, time-safe feature snapshots, real canonical player
+lineups, atomic forecast locking, postponement-safe replacement jobs, and a
+public synchronized replay endpoint. The endpoint never exposes future events or
+the simulated final result before the shared one-minute presentation reaches
+full-time.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -51,6 +57,7 @@ browser preview replays that stored payload without regenerating the match.
 - [Phase 11 ensemble evaluation](docs/phase-11/ENSEMBLE_MODEL.md)
 - [Phase 12 detailed statistics](docs/phase-12/DETAILED_STATISTICS.md)
 - [Phase 13 quick-match simulation](docs/phase-13/QUICK_MATCH_SIMULATION.md)
+- [Phase 14 automated forecast lifecycle](docs/phase-14/AUTOMATED_FORECAST_LIFECYCLE.md)
 
 ## Development
 
@@ -105,3 +112,17 @@ pnpm dev
 Open `http://localhost:3000/simulation-preview`. Play, pause, seek, and restart
 the fixed one-minute replay. Refreshing the page loads the same seed and checksum,
 so it cannot silently produce a different match.
+
+## Phase 14 automatic lifecycle
+
+After applying migrations and configuring the two approved artifact paths, run
+one local dispatcher cycle with:
+
+```powershell
+.\scripts\run-forecast-dispatcher.ps1
+```
+
+Production scheduling will invoke the same one-shot command every minute. A
+cycle creates any missing current-revision jobs, leases a bounded due batch, and
+generates each complete prediction transactionally. The browser reads
+`GET /api/matches/{match_uuid}/forecast`; users never press a simulate button.

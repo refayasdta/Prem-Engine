@@ -5,6 +5,7 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from prem_engine_api.api.forecasts import router as forecast_router
 from prem_engine_api.config import get_settings
 
 
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
         description="Forecast, simulation, standings, and evaluation API.",
         version="0.1.0",
     )
+    app.include_router(forecast_router)
 
     @app.get("/health", response_model=HealthResponse, tags=["operations"])
     async def health() -> HealthResponse:

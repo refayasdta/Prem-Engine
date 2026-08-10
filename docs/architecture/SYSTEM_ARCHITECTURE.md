@@ -66,7 +66,8 @@ exploration but production features and models live in tested Python packages.
 
 ### Scheduled dispatcher
 
-- Run at a fixed short interval, initially every 15 minutes.
+- Run once per minute so a fixed one-minute presentation can start promptly
+  after the T-24 forecast is generated and locked.
 - Claim due work idempotently using database leases.
 - Enforce the provider request ledger and daily budget.
 - Start bounded Cloud Run Jobs rather than performing work itself.

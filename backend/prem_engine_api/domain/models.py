@@ -489,6 +489,20 @@ class PredictionVersion(Base, TimestampMixin):
     void_reason: Mapped[str | None] = mapped_column(String(120))
 
 
+class FeatureSnapshot(Base):
+    __tablename__ = "feature_snapshots"
+
+    feature_snapshot_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    prediction_version_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("prediction_versions.prediction_version_uuid", ondelete="CASCADE"), unique=True
+    )
+    schema_version: Mapped[str] = mapped_column(String(80))
+    feature_cutoff_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    latest_source_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    feature_payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    checksum: Mapped[str] = mapped_column(String(64))
+
+
 class PredictedLineup(Base):
     __tablename__ = "predicted_lineups"
 
@@ -505,6 +519,7 @@ class StoredSimulation(Base):
     __tablename__ = "stored_simulations"
     __table_args__ = (
         CheckConstraint("home_goals >= 0 AND away_goals >= 0", name="nonnegative_score"),
+        CheckConstraint("presentation_duration_seconds > 0", name="positive_presentation_duration"),
     )
 
     simulation_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
@@ -517,6 +532,8 @@ class StoredSimulation(Base):
     statistics: Mapped[dict[str, Any]] = mapped_column(JSONB)
     events: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
     checksum: Mapped[str] = mapped_column(String(64))
+    presentation_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    presentation_duration_seconds: Mapped[int] = mapped_column(SmallInteger, default=60)
 
 
 class StandingsSnapshot(Base):
@@ -738,6 +755,8 @@ class JobRun(Base, TimestampMixin):
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error_code: Mapped[str | None] = mapped_column(String(120))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class LifecycleEvent(Base):

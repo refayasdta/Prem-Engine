@@ -23,6 +23,11 @@ class MatchNotFoundError(LookupError):
     """Raised when a lifecycle command references an unknown canonical match."""
 
 
+def _require_aware(value: datetime, field: str) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{field} must include a timezone")
+
+
 @dataclass(frozen=True)
 class RescheduleOutcome:
     """Identifiers and effects produced by a reschedule transaction."""
@@ -30,6 +35,31 @@ class RescheduleOutcome:
     revision_uuid: UUID
     prediction_voided: bool
     replacement_job_uuid: UUID
+
+
+async def _cancel_generation_jobs(
+    session: AsyncSession,
+    *,
+    match_uuid: UUID,
+    cancelled_at: datetime,
+) -> int:
+    jobs = list(
+        await session.scalars(
+            select(JobRun)
+            .where(
+                JobRun.match_uuid == match_uuid,
+                JobRun.job_type == "generate_prediction",
+                JobRun.status.in_((JobStatus.PENDING, JobStatus.LEASED, JobStatus.RUNNING)),
+            )
+            .with_for_update()
+        )
+    )
+    for job in jobs:
+        job.status = JobStatus.CANCELLED
+        job.lease_owner = None
+        job.lease_expires_at = None
+        job.finished_at = cancelled_at
+    return len(jobs)
 
 
 async def postpone_match(
@@ -43,6 +73,7 @@ async def postpone_match(
     """Mark a fixture postponed and void its official prediction until a new date exists."""
 
     effective_observed_at = observed_at or datetime.now(UTC)
+    _require_aware(effective_observed_at, "postponement observation")
     match = await session.scalar(
         select(Match).where(Match.match_uuid == match_uuid).with_for_update()
     )
@@ -50,6 +81,12 @@ async def postpone_match(
         raise MatchNotFoundError(str(match_uuid))
     if match.status is FixtureStatus.POSTPONED:
         return False
+
+    cancelled_jobs = await _cancel_generation_jobs(
+        session,
+        match_uuid=match_uuid,
+        cancelled_at=effective_observed_at,
+    )
 
     current_revision = await session.scalar(
         select(FixtureScheduleRevision)
@@ -118,7 +155,10 @@ async def postpone_match(
             aggregate_uuid=match_uuid,
             event_type="fixture_postponed",
             actor=actor,
-            payload={"prediction_voided": prediction_voided},
+            payload={
+                "prediction_voided": prediction_voided,
+                "generation_jobs_cancelled": cancelled_jobs,
+            },
         )
     )
     await session.flush()
@@ -136,6 +176,7 @@ async def cancel_match(
     """Cancel a fixture, void its prediction, and do not schedule a replacement."""
 
     effective_observed_at = observed_at or datetime.now(UTC)
+    _require_aware(effective_observed_at, "cancellation observation")
     match = await session.scalar(
         select(Match).where(Match.match_uuid == match_uuid).with_for_update()
     )
@@ -143,6 +184,12 @@ async def cancel_match(
         raise MatchNotFoundError(str(match_uuid))
     if match.status is FixtureStatus.CANCELLED:
         return False
+
+    cancelled_jobs = await _cancel_generation_jobs(
+        session,
+        match_uuid=match_uuid,
+        cancelled_at=effective_observed_at,
+    )
 
     current_revision = await session.scalar(
         select(FixtureScheduleRevision)
@@ -211,7 +258,10 @@ async def cancel_match(
             aggregate_uuid=match_uuid,
             event_type="fixture_cancelled",
             actor=actor,
-            payload={"prediction_voided": prediction_voided},
+            payload={
+                "prediction_voided": prediction_voided,
+                "generation_jobs_cancelled": cancelled_jobs,
+            },
         )
     )
     await session.flush()
@@ -230,11 +280,19 @@ async def reschedule_match(
     """Replace the current schedule and void any official active forecast atomically."""
 
     effective_observed_at = observed_at or datetime.now(UTC)
+    _require_aware(effective_observed_at, "reschedule observation")
+    _require_aware(revised_kickoff_at, "revised kickoff")
     match = await session.scalar(
         select(Match).where(Match.match_uuid == match_uuid).with_for_update()
     )
     if match is None:
         raise MatchNotFoundError(str(match_uuid))
+
+    cancelled_jobs = await _cancel_generation_jobs(
+        session,
+        match_uuid=match_uuid,
+        cancelled_at=effective_observed_at,
+    )
 
     current_revision = await session.scalar(
         select(FixtureScheduleRevision)
@@ -325,6 +383,7 @@ async def reschedule_match(
                 "revision_number": revision_number,
                 "revised_kickoff_at": revised_kickoff_at.isoformat(),
                 "prediction_voided": prediction_voided,
+                "generation_jobs_cancelled": cancelled_jobs,
             },
         )
     )

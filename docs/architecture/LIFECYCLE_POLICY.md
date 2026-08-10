@@ -91,6 +91,11 @@ statistics, and result.
 
 The frontend cannot request a reroll. Presentation time and football minute are
 derived from the stored timeline and do not affect the canonical simulation.
+Every official presentation uses the same server-derived wall clock: 25 seconds
+for the first half, 10 seconds for half-time, and 25 seconds for the second half.
+The API withholds future events, final statistics, and the final simulated score
+until that shared clock reaches them. There is no user speed control and no
+simulate button.
 
 ## Predicted and real lineups
 

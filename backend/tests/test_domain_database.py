@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
-from prem_engine_api.domain.enums import FixtureStatus, PredictionState
+from prem_engine_api.domain.enums import FixtureStatus, JobStatus, PredictionState
 from prem_engine_api.domain.lifecycle import cancel_match, reschedule_match
 from prem_engine_api.domain.models import (
     Club,
@@ -70,7 +70,7 @@ async def seed_locked_match(session: AsyncSession) -> tuple[Match, PredictionVer
     prediction = PredictionVersion(
         match_uuid=match.match_uuid,
         version_number=1,
-        state=PredictionState.ACTIVE_LOCKED,
+        state=PredictionState.GENERATING,
         feature_cutoff_at=kickoff - timedelta(hours=24),
         model_version="phase-3-test",
         feature_snapshot_checksum="a" * 64,
@@ -80,7 +80,7 @@ async def seed_locked_match(session: AsyncSession) -> tuple[Match, PredictionVer
         expected_home_goals=Decimal("1.5000"),
         expected_away_goals=Decimal("1.1000"),
         statistics_distribution={},
-        locked_at=kickoff - timedelta(hours=24),
+        locked_at=None,
     )
     session.add(prediction)
     await session.flush()
@@ -100,9 +100,14 @@ async def seed_locked_match(session: AsyncSession) -> tuple[Match, PredictionVer
                 statistics={},
                 events=[],
                 checksum="c" * 64,
+                presentation_started_at=kickoff - timedelta(hours=24),
+                presentation_duration_seconds=60,
             ),
         )
     )
+    await session.flush()
+    prediction.state = PredictionState.ACTIVE_LOCKED
+    prediction.locked_at = kickoff - timedelta(hours=24)
     await session.flush()
     return match, prediction
 
@@ -119,6 +124,7 @@ async def test_migrated_schema_contains_core_tables(db_session: AsyncSession) ->
         "match_external_references",
         "fixture_schedule_revisions",
         "prediction_versions",
+        "feature_snapshots",
         "predicted_lineups",
         "stored_simulations",
         "standings_snapshots",
@@ -143,6 +149,16 @@ async def test_migrated_schema_contains_core_tables(db_session: AsyncSession) ->
 async def test_reschedule_voids_prediction_and_keeps_artifacts(db_session: AsyncSession) -> None:
     match, prediction = await seed_locked_match(db_session)
     revised_kickoff = match.current_kickoff_at + timedelta(days=21)
+    stale_job = JobRun(
+        idempotency_key=f"generate_prediction:{match.match_uuid}:1",
+        job_type="generate_prediction",
+        status=JobStatus.PENDING,
+        match_uuid=match.match_uuid,
+        due_at=match.prediction_due_at,
+        attempt_count=0,
+    )
+    db_session.add(stale_job)
+    await db_session.flush()
 
     outcome = await reschedule_match(
         db_session,
@@ -156,6 +172,7 @@ async def test_reschedule_voids_prediction_and_keeps_artifacts(db_session: Async
     assert outcome.prediction_voided is True
     assert prediction.state is PredictionState.VOIDED
     assert prediction.void_reason == "fixture_postponed"
+    assert stale_job.status is JobStatus.CANCELLED
     assert match.current_kickoff_at == revised_kickoff
     assert match.prediction_due_at == revised_kickoff - timedelta(hours=24)
     jobs = list(

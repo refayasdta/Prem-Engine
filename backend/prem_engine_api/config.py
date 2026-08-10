@@ -2,8 +2,9 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import PositiveInt, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +28,19 @@ class Settings(BaseSettings):
     historical_data_base_url: str = "https://www.football-data.co.uk/mmz4281"
     raw_data_root: Path = Path("data/raw")
     processed_data_root: Path = Path("data/processed")
+    goal_model_path: Path = Path("artifacts/models/goals/goals-v1-156511483a94/model.joblib")
+    goal_model_sha256: str = "fe8a19c262b6a0d8aa02e01564f6c109eec2d16e237fa276e6a414967ecf0adc"
+    statistics_model_path: Path = Path(
+        "artifacts/models/match-statistics/detailed-statistics-v1-42e73adec486/model.joblib"
+    )
+    statistics_model_sha256: str = (
+        "6859e2b0a6cd23382b795e68034b29548a6ac0a26fa9f08623cda5306cac4e12"
+    )
+    forecast_dispatch_batch_size: PositiveInt = 10
+    forecast_job_lease_seconds: PositiveInt = 300
+    forecast_job_max_attempts: PositiveInt = 4
+    forecast_retry_delay_seconds: PositiveInt = 300
+    simulation_presentation_seconds: Literal[60] = 60
 
     model_config = SettingsConfigDict(
         env_file=".env",

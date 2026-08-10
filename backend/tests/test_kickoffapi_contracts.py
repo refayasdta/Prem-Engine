@@ -2,7 +2,12 @@
 
 from prem_engine_api.providers.kickoffapi.contracts import (
     FixtureEnvelope,
+    InjuryEnvelope,
     LeagueEnvelope,
+    LineupEnvelope,
+    PlayerEnvelope,
+    SquadEnvelope,
+    TransferEnvelope,
     validate_endpoint_payload,
 )
 
@@ -67,3 +72,65 @@ def test_endpoint_validator_rejects_unregistered_endpoint() -> None:
         assert "no contract validator" in str(error)
     else:  # pragma: no cover - required assertion branch
         raise AssertionError("unknown endpoint should not validate")
+
+
+def test_player_and_squad_contracts_accept_native_ids() -> None:
+    players = validate_endpoint_payload(
+        "/api/v2/players",
+        {"data": [{"id": "pl_1", "name": "Example Player", "nationality": "England"}]},
+    )
+    squad = validate_endpoint_payload(
+        "/api/v2/teams/tm_1/squad",
+        {"data": [{"id": "pl_1", "name": "Example Player", "position": "Midfielder"}]},
+    )
+    assert isinstance(players, PlayerEnvelope)
+    assert isinstance(squad, SquadEnvelope)
+    assert squad.data[0].position == "Midfielder"
+
+
+def test_lineup_contract_normalizes_starting_xi_alias() -> None:
+    lineup = validate_endpoint_payload(
+        "/api/v2/fixtures/fx_1/lineups",
+        {
+            "data": [
+                {
+                    "team": {"id": "tm_1", "name": "Home"},
+                    "formation": "4-3-3",
+                    "startXI": [
+                        {
+                            "player": {"id": "pl_1", "name": "Goalkeeper"},
+                            "pos": "G",
+                            "grid": "1:1",
+                        }
+                    ],
+                    "substitutes": [],
+                }
+            ]
+        },
+    )
+    assert isinstance(lineup, LineupEnvelope)
+    assert lineup.data[0].start_xi[0].position == "G"
+
+
+def test_availability_and_transfer_contracts_allow_sparse_references() -> None:
+    injuries = validate_endpoint_payload(
+        "/api/v2/injuries",
+        {
+            "data": [
+                {
+                    "id": 1,
+                    "player": {"id": "pl_1", "name": "Example"},
+                    "injury": {"type": "Suspension", "from": None, "until": None},
+                }
+            ]
+        },
+    )
+    transfers = validate_endpoint_payload(
+        "/api/v2/transfers",
+        {"data": [{"id": "tr_1", "date": "2026-07-01", "player": {"id": "pl_1"}}]},
+    )
+    assert isinstance(injuries, InjuryEnvelope)
+    assert injuries.data[0].injury is not None
+    assert injuries.data[0].injury.type == "Suspension"
+    assert isinstance(transfers, TransferEnvelope)
+    assert transfers.data[0].date.isoformat() == "2026-07-01"

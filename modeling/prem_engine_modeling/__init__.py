@@ -6,6 +6,12 @@ from prem_engine_modeling.feature_export import validate_feature_export
 from prem_engine_modeling.features import FeaturePipelineConfig, build_prematch_features
 from prem_engine_modeling.goal_training import GoalParameterGrid, train_goal_model
 from prem_engine_modeling.goals import DynamicGoalModel, GoalForecast, GoalModelConfig
+from prem_engine_modeling.player_data import load_player_context
+from prem_engine_modeling.player_features import build_player_enhanced_features
+from prem_engine_modeling.player_training import (
+    load_player_impact_dataset,
+    train_player_impact_model,
+)
 from prem_engine_modeling.tabular_data import load_tabular_dataset
 from prem_engine_modeling.tabular_training import train_tabular_model
 from prem_engine_modeling.training import ParameterGrid, train_baseline, walk_forward
@@ -25,8 +31,12 @@ __all__ = [
     "load_tabular_dataset",
     "standard_six_season_split",
     "build_prematch_features",
+    "build_player_enhanced_features",
+    "load_player_context",
+    "load_player_impact_dataset",
     "train_baseline",
     "train_goal_model",
+    "train_player_impact_model",
     "train_tabular_model",
     "validate_feature_export",
     "validate_result_probabilities",

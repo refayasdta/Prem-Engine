@@ -7,13 +7,16 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 9 are complete. The platform foundation now includes audited,
+Phases 1 through 10 are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
 Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
 pipeline. Phase 9 also evaluates calibrated tabular classifiers and transparently
 records that the standalone candidate did not pass the promotion gate against
-Elo and the goal model.
+Elo and the goal model. Phase 10 adds canonical player context, expected lineups,
+availability and transfer features, plus a coverage-gated training path. Its
+reference model is safely blocked because historical player coverage is not yet
+adequate.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -26,6 +29,7 @@ Elo and the goal model.
 - [Phase 7 goal model](docs/phase-7/GOAL_MODEL.md)
 - [Phase 8 pre-match features](docs/phase-8/FEATURE_ENGINEERING.md)
 - [Phase 9 calibrated tabular model](docs/phase-9/CALIBRATED_TABULAR_MODEL.md)
+- [Phase 10 player impact and availability](docs/phase-10/PLAYER_IMPACT_AVAILABILITY.md)
 
 ## Development
 
@@ -37,3 +41,19 @@ Run all available checks with:
 ```powershell
 .\scripts\check.ps1
 ```
+
+## Phase 10 manual workflow
+
+After placing normalized player input files under
+`data/processed/player_context/`, build the player-enhanced export and request
+training with:
+
+```powershell
+.\scripts\export-player-context.ps1
+.\scripts\build-player-features.ps1
+.\scripts\train-player-impact-model.ps1
+```
+
+Both commands default to human-readable output. Training exits cleanly with a
+detailed blocked-readiness report until the historical coverage gate passes; it
+does not manufacture or promote a sparse model.

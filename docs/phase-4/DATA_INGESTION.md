@@ -6,9 +6,9 @@ Date: 2026-08-07
 
 Prem Engine targets KickoffAPI v2. The official documentation marks v1 as
 deprecated with a 01 January 2027 sunset. Authentication remains the server-side
-`x-api-key` header, and responses expose daily allowance, remaining requests,
-reset time, and request identifiers through `X-RateLimit-*` and `X-Request-Id`
-headers.
+`x-api-key` header. Responses expose the active rate-limit window, its remaining
+requests and reset time, plus request identifiers through `X-RateLimit-*` and
+`X-Request-Id` headers.
 
 Official sources:
 
@@ -66,9 +66,9 @@ passed offline validation against the captured byte-exact responses. The account
 returned string IDs and the `{data, meta}` envelope with cursor pagination. The
 sanitized evidence is committed as `data/contracts/kickoffapi/probe-summary.json`.
 
-All three responses reported `X-RateLimit-Limit: 30`, while the account's stated
-daily plan limit is 100. The official documentation discusses both minute and
-daily limits but does not disambiguate this observed value. Prem Engine therefore
-keeps the explicit 100/day configuration and 85/day operational ceiling, records
-the provider headers independently, and blocks locally whenever the latest
-response reports zero remaining requests before its reset time.
+All three responses reported `X-RateLimit-Limit: 30`. The account dashboard
+confirms that this is the 30-request-per-minute window and that the account also
+has a separate 100-request daily allowance. Prem Engine therefore keeps its
+explicit 100/day hard limit and 85/day operational ceiling, records the active
+provider window independently, and blocks locally whenever that window reports
+zero remaining requests before its reset time.

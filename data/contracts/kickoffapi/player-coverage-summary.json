@@ -1,0 +1,216 @@
+{
+  "contract_version": "kickoffapi-player-coverage-v1",
+  "sanitized": true,
+  "requested_season": 2025,
+  "request_count": 7,
+  "rate_limit_interpretation": {
+    "dashboard_daily_limit": 100,
+    "header_window": "minute",
+    "header_limit": 30,
+    "remaining_after_probe": 23
+  },
+  "probes": [
+    {
+      "name": "players",
+      "endpoint": "/api/v2/players",
+      "status_code": 200,
+      "rate_limit": 30,
+      "rate_remaining": 29,
+      "provider_request_id_present": true,
+      "coverage": "available",
+      "contract_valid": true,
+      "response_shape": {
+        "data": {
+          "type": "list",
+          "length": 5,
+          "item": {
+            "id": "str",
+            "name": "str",
+            "firstname": "null",
+            "lastname": "null",
+            "age": "null",
+            "birth": "null",
+            "nationality": "null",
+            "height": "null",
+            "weight": "null",
+            "injured": "null",
+            "photo": "str",
+            "source": "str"
+          }
+        },
+        "meta": {
+          "count": "int",
+          "cursor": "int",
+          "nextCursor": "str",
+          "source": "str",
+          "ownedRows": "int",
+          "totalRows": "int"
+        }
+      }
+    },
+    {
+      "name": "historical_fixtures",
+      "endpoint": "/api/v2/fixtures",
+      "status_code": 200,
+      "rate_limit": 30,
+      "rate_remaining": 28,
+      "provider_request_id_present": true,
+      "coverage": "available",
+      "contract_valid": true,
+      "response_shape": {
+        "data": {
+          "type": "list",
+          "length": 5,
+          "item": {
+            "id": "str",
+            "date": "str",
+            "time": "str",
+            "status": {
+              "long": "str",
+              "short": "str",
+              "elapsed": "null"
+            },
+            "league": {
+              "id": "str",
+              "name": "str",
+              "season": "int"
+            },
+            "home": {
+              "id": "str",
+              "name": "str"
+            },
+            "away": {
+              "id": "str",
+              "name": "str"
+            },
+            "score": {
+              "home": "int",
+              "away": "int",
+              "halftime": {
+                "home": "int",
+                "away": "int"
+              }
+            },
+            "round": "str",
+            "group": "null",
+            "notes": "null",
+            "source": "str"
+          }
+        },
+        "meta": {
+          "count": "int",
+          "cursor": "int",
+          "nextCursor": "str",
+          "source": "str",
+          "statusDerived": "bool"
+        }
+      }
+    },
+    {
+      "name": "team_squad",
+      "endpoint": "/api/v2/teams/:id/squad",
+      "status_code": 200,
+      "rate_limit": 30,
+      "rate_remaining": 27,
+      "provider_request_id_present": true,
+      "coverage": "available",
+      "contract_valid": true,
+      "response_shape": {
+        "data": {
+          "type": "list",
+          "length": 16,
+          "item": {
+            "id": "str",
+            "name": "str",
+            "position": "str"
+          }
+        },
+        "meta": {
+          "team": "str",
+          "name": "str",
+          "count": "int",
+          "source": "str"
+        }
+      }
+    },
+    {
+      "name": "fixture_lineups",
+      "endpoint": "/api/v2/fixtures/:id/lineups",
+      "status_code": 404,
+      "rate_limit": 30,
+      "rate_remaining": 26,
+      "provider_request_id_present": true,
+      "coverage": "unavailable",
+      "contract_valid": false,
+      "response_shape": null
+    },
+    {
+      "name": "fixture_players",
+      "endpoint": "/api/v2/fixtures/:id/players",
+      "status_code": 404,
+      "rate_limit": 30,
+      "rate_remaining": 25,
+      "provider_request_id_present": true,
+      "coverage": "unavailable",
+      "contract_valid": false,
+      "response_shape": null
+    },
+    {
+      "name": "injuries",
+      "endpoint": "/api/v2/injuries",
+      "status_code": 200,
+      "rate_limit": 30,
+      "rate_remaining": 24,
+      "provider_request_id_present": true,
+      "coverage": "available",
+      "contract_valid": true,
+      "offline_revalidated_after_contract_update": true,
+      "response_shape": {
+        "data": {
+          "type": "list",
+          "length": 5,
+          "item": {
+            "id": "int",
+            "player": {
+              "id": "str",
+              "name": "str"
+            },
+            "injury": {
+              "type": "str",
+              "from": "null",
+              "until": "null"
+            }
+          }
+        },
+        "meta": {
+          "count": "int",
+          "cursor": "int",
+          "nextCursor": "str",
+          "source": "str"
+        }
+      }
+    },
+    {
+      "name": "transfers",
+      "endpoint": "/api/v2/transfers",
+      "status_code": 200,
+      "rate_limit": 30,
+      "rate_remaining": 23,
+      "provider_request_id_present": true,
+      "coverage": "empty",
+      "contract_valid": true,
+      "response_shape": {
+        "data": {
+          "type": "list",
+          "length": 0,
+          "item": null
+        },
+        "meta": {
+          "count": "int",
+          "cursor": "int",
+          "nextCursor": "null"
+        }
+      }
+    }
+  ]
+}

@@ -64,3 +64,11 @@ class ProviderRequestStatus(StrEnum):
     RESERVED = "reserved"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+
+
+class PlayerAvailabilityStatus(StrEnum):
+    AVAILABLE = "available"
+    DOUBTFUL = "doubtful"
+    OUT = "out"
+    SUSPENDED = "suspended"
+    UNKNOWN = "unknown"

@@ -130,6 +130,11 @@ async def test_migrated_schema_contains_core_tables(db_session: AsyncSession) ->
         "historical_source_files",
         "historical_match_records",
         "club_aliases",
+        "observed_lineups",
+        "observed_lineup_players",
+        "player_match_performances",
+        "player_availability_reports",
+        "transfer_observations",
         "lifecycle_events",
     } <= names
 

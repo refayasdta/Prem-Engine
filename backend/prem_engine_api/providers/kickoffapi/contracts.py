@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -15,6 +15,19 @@ class ProviderTeam(BaseModel):
     name: str
     country: str | None = None
     logo: str | None = None
+
+
+class ProviderPlayer(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    name: str | None = None
+    firstname: str | None = None
+    lastname: str | None = None
+    birth: date | dict[str, Any] | None = None
+    nationality: str | None = None
+    position: str | None = None
+    photo: str | None = None
 
 
 class ProviderLeague(BaseModel):
@@ -124,6 +137,105 @@ class TeamEnvelope(BaseModel):
     count: int | None = None
 
 
+class PlayerEnvelope(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: list[ProviderPlayer]
+    meta: dict[str, Any] = Field(default_factory=dict)
+    count: int | None = None
+
+
+class ProviderSquadPlayer(ProviderPlayer):
+    number: int | None = None
+
+
+class SquadEnvelope(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: list[ProviderSquadPlayer]
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProviderLineupSlot(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    player: ProviderPlayer
+    position: str | None = Field(default=None, alias="pos")
+    grid: str | None = None
+    number: int | None = None
+
+
+class ProviderLineup(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    team: ProviderTeam
+    formation: str | None = None
+    start_xi: list[ProviderLineupSlot] = Field(default_factory=list, alias="startXI")
+    substitutes: list[ProviderLineupSlot] = Field(default_factory=list)
+
+
+class LineupEnvelope(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: list[ProviderLineup]
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProviderInjuryDetail(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    type: str | None = None
+    from_date: date | datetime | None = Field(default=None, alias="from")
+    until: date | datetime | None = None
+
+
+class ProviderInjury(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str | int | None = None
+    reason: str | None = None
+    type: str | None = None
+    player: ProviderPlayer
+    injury: ProviderInjuryDetail | None = None
+    team: ProviderTeam | None = None
+    fixture: dict[str, Any] | None = None
+    reported_at: datetime | None = Field(default=None, alias="reportedAt")
+    expected_return: datetime | None = Field(default=None, alias="expectedReturn")
+
+
+class InjuryEnvelope(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: list[ProviderInjury]
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProviderTransfer(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str | int | None = None
+    date: date
+    type: str | None = None
+    player: ProviderPlayer
+    teams: dict[str, Any] | None = None
+
+
+class TransferEnvelope(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: list[ProviderTransfer]
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class FixturePlayerEnvelope(BaseModel):
+    """Player-stat shapes vary by source, so preserve typed object boundaries."""
+
+    model_config = ConfigDict(extra="allow")
+
+    data: list[dict[str, Any]]
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
 def validate_endpoint_payload(endpoint: str, payload: object) -> BaseModel:
     """Validate a captured payload without leaking provider values into the domain."""
 
@@ -131,8 +243,20 @@ def validate_endpoint_payload(endpoint: str, payload: object) -> BaseModel:
         "/api/v2/leagues": LeagueEnvelope,
         "/api/v2/teams": TeamEnvelope,
         "/api/v2/fixtures": FixtureEnvelope,
+        "/api/v2/players": PlayerEnvelope,
+        "/api/v2/injuries": InjuryEnvelope,
+        "/api/v2/transfers": TransferEnvelope,
     }
     validator = validators.get(endpoint)
+    route_parts = endpoint.strip("/").split("/")
+    if len(route_parts) == 5 and route_parts[:3] == ["api", "v2", "teams"]:
+        if route_parts[4] == "squad":
+            validator = SquadEnvelope
+    if len(route_parts) == 5 and route_parts[:3] == ["api", "v2", "fixtures"]:
+        if route_parts[4] == "lineups":
+            validator = LineupEnvelope
+        elif route_parts[4] == "players":
+            validator = FixturePlayerEnvelope
     if validator is None:
         raise ValueError(f"no contract validator registered for {endpoint}")
     return validator.model_validate(payload)

@@ -61,3 +61,19 @@ The reference candidate is rejected because it does not beat the established
 holdout benchmarks. Its immutable artifact remains research evidence and carries
 an explicit non-approved promotion status. See
 `docs/phase-9/CALIBRATED_TABULAR_MODEL.md` for the full decision.
+
+Phase 10 adds 26 player-history, expected-lineup, availability, replacement,
+bench, suspension, and transfer-uncertainty features. Build the 100-feature
+dataset and run the coverage-gated trainer with:
+
+```powershell
+.\scripts\export-player-context.ps1
+.\scripts\build-player-features.ps1
+.\scripts\train-player-impact-model.ps1
+```
+
+The current reference inputs contain no normalized historical player
+performances, so the trainer prints `TRAINING SAFELY BLOCKED` and writes no model
+artifact. When coverage passes, the same command performs chronological candidate
+selection, calibration, holdout comparison, and promotion. See
+`docs/phase-10/PLAYER_IMPACT_AVAILABILITY.md`.

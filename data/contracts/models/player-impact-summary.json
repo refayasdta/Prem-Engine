@@ -1,0 +1,47 @@
+{
+  "approved_for_official_forecasts": false,
+  "artifact_committed": false,
+  "base_feature_checksum": "b90c1eb11def7c0fe31d347b95cb9a029e4b1697d8de552f9fff4df3f2a3e6ba",
+  "contract_version": "player-impact-reference-v1",
+  "coverage_gate": {
+    "covered_fixture_count": 0,
+    "covered_fixture_rate": 0.0,
+    "minimum_covered_fixture_rate": 0.7,
+    "minimum_performance_records": 10000,
+    "performance_record_count": 0,
+    "reason": "Only 0 player-match performances are available; at least 10,000 are required.",
+    "trainable": false
+  },
+  "deterministic": true,
+  "feature_contract": {
+    "base_feature_count": 74,
+    "player_feature_count": 26,
+    "player_feature_dataset_checksum": "71e5adf1586b5c02dc7c273de8d669a6a9e0a342ece6ce622352ea611f7fda25",
+    "total_feature_count": 100
+  },
+  "live_provider_audit": {
+    "dashboard_daily_limit": 100,
+    "fixture_lineups": "sample_unavailable_http_404",
+    "fixture_player_statistics": "sample_unavailable_http_404",
+    "injuries": "available_and_contract_valid",
+    "observed_minute_limit": 30,
+    "observed_minute_remaining_after_audit": 23,
+    "players": "available_and_contract_valid",
+    "request_count": 7,
+    "squads": "available_and_contract_valid",
+    "transfers": "sample_empty_and_contract_valid"
+  },
+  "official_model_allowed": false,
+  "player_context_checksum": "b5dd598c85ab6bec0e60b1b41f4db5b03e5e9c1d463a885a6796aab7c5ebfb4b",
+  "reference_fixture_count": 2280,
+  "reference_seasons": [
+    "2020/21",
+    "2021/22",
+    "2022/23",
+    "2023/24",
+    "2024/25",
+    "2025/26"
+  ],
+  "training_status": "blocked_insufficient_historical_player_coverage",
+  "unknown_availability_probability": 0.75
+}

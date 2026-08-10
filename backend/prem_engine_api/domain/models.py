@@ -35,6 +35,7 @@ from prem_engine_api.domain.enums import (
     IdentityReviewStatus,
     JobStatus,
     KickoffPrecision,
+    PlayerAvailabilityStatus,
     PredictionState,
     ProviderRequestStatus,
     ResultKind,
@@ -169,6 +170,155 @@ class SquadMembership(Base, TimestampMixin):
     left_on: Mapped[date | None] = mapped_column(Date)
     shirt_number: Mapped[int | None] = mapped_column(SmallInteger)
     primary_position: Mapped[str | None] = mapped_column(String(40))
+
+
+class ObservedLineup(Base, TimestampMixin):
+    __tablename__ = "observed_lineups"
+    __table_args__ = (
+        UniqueConstraint("match_uuid", "club_uuid", "checksum"),
+        Index("ix_observed_lineups_available_after", "available_after"),
+    )
+
+    observed_lineup_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    match_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("matches.match_uuid", ondelete="CASCADE"), index=True
+    )
+    club_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("clubs.club_uuid", ondelete="RESTRICT"), index=True
+    )
+    formation: Mapped[str | None] = mapped_column(String(20))
+    confirmed: Mapped[bool] = mapped_column(Boolean, default=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    available_after: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    provider: Mapped[str] = mapped_column(String(40))
+    provider_payload_key: Mapped[str] = mapped_column(Text)
+    checksum: Mapped[str] = mapped_column(String(64))
+
+
+class ObservedLineupPlayer(Base):
+    __tablename__ = "observed_lineup_players"
+    __table_args__ = (
+        UniqueConstraint("observed_lineup_uuid", "player_uuid"),
+        UniqueConstraint(
+            "observed_lineup_uuid",
+            "role",
+            "slot",
+            name="uq_observed_lineup_players_role_slot",
+        ),
+        CheckConstraint("role IN ('starter', 'substitute')", name="valid_role"),
+        CheckConstraint("slot > 0", name="positive_slot"),
+    )
+
+    observed_lineup_player_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    observed_lineup_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("observed_lineups.observed_lineup_uuid", ondelete="CASCADE"), index=True
+    )
+    player_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("players.player_uuid", ondelete="RESTRICT"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(20))
+    slot: Mapped[int] = mapped_column(SmallInteger)
+    position: Mapped[str | None] = mapped_column(String(40))
+    shirt_number: Mapped[int | None] = mapped_column(SmallInteger)
+
+
+class PlayerMatchPerformance(Base, TimestampMixin):
+    __tablename__ = "player_match_performances"
+    __table_args__ = (
+        UniqueConstraint("match_uuid", "club_uuid", "player_uuid"),
+        CheckConstraint("minutes IS NULL OR minutes BETWEEN 0 AND 130", name="valid_minutes"),
+        CheckConstraint("rating IS NULL OR rating BETWEEN 0 AND 10", name="valid_rating"),
+        Index("ix_player_match_performances_available_after", "available_after"),
+    )
+
+    player_match_performance_uuid: Mapped[UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid4
+    )
+    match_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("matches.match_uuid", ondelete="CASCADE"), index=True
+    )
+    club_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("clubs.club_uuid", ondelete="RESTRICT"), index=True
+    )
+    player_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("players.player_uuid", ondelete="RESTRICT"), index=True
+    )
+    started: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[str | None] = mapped_column(String(40))
+    minutes: Mapped[int | None] = mapped_column(SmallInteger)
+    rating: Mapped[Decimal | None] = mapped_column(Numeric(4, 2))
+    statistics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    available_after: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    provider_payload_key: Mapped[str] = mapped_column(Text)
+
+
+class PlayerAvailabilityReport(Base, TimestampMixin):
+    __tablename__ = "player_availability_reports"
+    __table_args__ = (
+        CheckConstraint("availability_probability BETWEEN 0 AND 1", name="valid_probability"),
+        UniqueConstraint(
+            "provider",
+            "provider_payload_key",
+            "player_uuid",
+            "match_uuid",
+            name="uq_player_availability_report_source",
+        ),
+        Index("ix_player_availability_reports_observed_at", "observed_at"),
+    )
+
+    availability_report_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    player_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("players.player_uuid", ondelete="RESTRICT"), index=True
+    )
+    club_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("clubs.club_uuid", ondelete="RESTRICT"), index=True
+    )
+    match_uuid: Mapped[UUID | None] = mapped_column(
+        ForeignKey("matches.match_uuid", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[PlayerAvailabilityStatus] = mapped_column(
+        Enum(
+            PlayerAvailabilityStatus,
+            name="player_availability_status",
+            values_callable=enum_values,
+        )
+    )
+    reason: Mapped[str | None] = mapped_column(String(240))
+    availability_probability: Mapped[Decimal] = mapped_column(Numeric(5, 4))
+    reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expected_return_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    provider: Mapped[str] = mapped_column(String(40))
+    provider_payload_key: Mapped[str] = mapped_column(Text)
+
+
+class TransferObservation(Base, TimestampMixin):
+    __tablename__ = "transfer_observations"
+    __table_args__ = (
+        CheckConstraint(
+            "from_club_uuid IS NULL OR to_club_uuid IS NULL OR from_club_uuid <> to_club_uuid",
+            name="different_clubs",
+        ),
+        Index("ix_transfer_observations_transfer_date", "transfer_date"),
+        Index("ix_transfer_observations_observed_at", "observed_at"),
+    )
+
+    transfer_observation_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    player_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("players.player_uuid", ondelete="RESTRICT"), index=True
+    )
+    from_club_uuid: Mapped[UUID | None] = mapped_column(
+        ForeignKey("clubs.club_uuid", ondelete="RESTRICT"), index=True
+    )
+    to_club_uuid: Mapped[UUID | None] = mapped_column(
+        ForeignKey("clubs.club_uuid", ondelete="RESTRICT"), index=True
+    )
+    transfer_date: Mapped[date] = mapped_column(Date)
+    transfer_type: Mapped[str | None] = mapped_column(String(80))
+    external_transfer_id: Mapped[str | None] = mapped_column(String(120))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    provider: Mapped[str] = mapped_column(String(40))
+    provider_payload_key: Mapped[str] = mapped_column(Text)
 
 
 class Match(Base, TimestampMixin):

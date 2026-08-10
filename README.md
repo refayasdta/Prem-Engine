@@ -7,7 +7,7 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 10 are complete. The platform foundation now includes audited,
+Phases 1 through 11 are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
 Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
@@ -21,6 +21,9 @@ player-match performances across all 2,280 target fixtures. The normalized
 feature dataset passed its coverage gate at 96.0%. The approved manual training
 run completed, but the player-impact candidate performed worse than the Phase 7
 goal model on the untouched holdout and was rejected for official forecasts.
+Phase 11 then tested 286 chronological convex ensembles across Elo, goals,
+tabular, and player forecasts. Its selected 90% Elo/10% player blend also failed
+the promotion gate, so Phase 7 remains the approved forecasting benchmark.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -38,6 +41,7 @@ goal model on the untouched holdout and was rejected for official forecasts.
 - [Historical FPL player-data audit](data/contracts/fpl-historical/README.md)
 - [Player-feature training readiness](data/contracts/models/PLAYER_FEATURE_READINESS.md)
 - [Player-impact training result](data/contracts/models/PLAYER_MODEL_TRAINING_RESULT.md)
+- [Phase 11 ensemble evaluation](docs/phase-11/ENSEMBLE_MODEL.md)
 
 ## Development
 
@@ -67,3 +71,14 @@ detailed blocked-readiness report until the historical coverage gate passes; it
 does not manufacture or promote a sparse model. The 2026-08-10 reference run
 passed the coverage gate but failed the promotion gate, so Phase 7 goals remains
 the official benchmark.
+
+## Phase 11 ensemble workflow
+
+Run the deterministic convex-weight evaluation with:
+
+```powershell
+.\scripts\train-ensemble-model.ps1
+```
+
+The reference run evaluated 286 blends and rejected the selected ensemble. Its
+artifact is retained locally for audit but is not approved for official use.

@@ -72,8 +72,18 @@ dataset and run the coverage-gated trainer with:
 .\scripts\train-player-impact-model.ps1
 ```
 
-The current reference inputs contain no normalized historical player
-performances, so the trainer prints `TRAINING SAFELY BLOCKED` and writes no model
-artifact. When coverage passes, the same command performs chronological candidate
-selection, calibration, holdout comparison, and promotion. See
+The historical FPL import now supplies 66,665 player performances and passes the
+coverage gate at 96.0%. The reference player model trained successfully but was
+rejected because it did not improve the Phase 7 goal benchmark. See
 `docs/phase-10/PLAYER_IMPACT_AVAILABILITY.md`.
+
+Phase 11 evaluates non-negative convex blends of the Elo, goal, tabular, and
+player forecasts. Run its chronological weight selection and calibration with:
+
+```powershell
+.\scripts\train-ensemble-model.ps1
+```
+
+The selected reference blend was also rejected, leaving Phase 7 as the approved
+forecasting benchmark. Scoreline outcome-partition rescaling is implemented for
+any future ensemble that passes promotion. See `docs/phase-11/ENSEMBLE_MODEL.md`.

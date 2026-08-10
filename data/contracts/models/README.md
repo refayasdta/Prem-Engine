@@ -19,7 +19,11 @@ evidence. A committed summary may describe the experiment, but the binary remain
 ignored and its payload explicitly states that it is not approved for official
 forecasts.
 
-Phase 10 adds `player-impact-summary.json`. The player-enhanced training pipeline
-is complete, but no model artifact exists because the reference six-season
-dataset currently contains zero normalized historical player performances. It
-must not be described as a trained or promoted model.
+Phase 10 adds `player-impact-summary.json`. The historical FPL import passed the
+coverage gate and the player model was trained, but its artifact remains ignored
+and rejected because it did not improve the Phase 7 goal benchmark.
+
+Phase 11 adds `ensemble-summary.json`. It records the selected convex weights,
+component and ensemble calibration, holdout metrics, scoreline-reconciliation
+contract, and rejected promotion decision. Full artifacts remain ignored under
+`artifacts/models/ensemble/`.

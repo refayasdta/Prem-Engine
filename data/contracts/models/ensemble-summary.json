@@ -1,0 +1,85 @@
+{
+  "approved_for_official_forecasts": false,
+  "artifact_committed": false,
+  "artifact_sha256": "033664a95136193554981ed04621d15aaaae722d1d5c60f035510c9509b791eb",
+  "calibration": {
+    "component_temperatures": {
+      "elo": 1.0,
+      "goals": 1.0,
+      "player": 1.26648,
+      "tabular": 1.266669
+    },
+    "ensemble_temperature": 0.918529,
+    "season": "2023/24"
+  },
+  "component_holdout_metrics": {
+    "elo": {
+      "accuracy": 0.502632,
+      "brier_score": 0.607121,
+      "expected_calibration_error": 0.043599,
+      "log_loss": 1.011215,
+      "ranked_probability_score": 0.206922
+    },
+    "goals": {
+      "accuracy": 0.498684,
+      "brier_score": 0.604277,
+      "expected_calibration_error": 0.018339,
+      "log_loss": 1.00891,
+      "ranked_probability_score": 0.206306
+    },
+    "player": {
+      "accuracy": 0.455263,
+      "brier_score": 0.654787,
+      "expected_calibration_error": 0.086527,
+      "log_loss": 1.093111,
+      "ranked_probability_score": 0.226559
+    },
+    "tabular": {
+      "accuracy": 0.481579,
+      "brier_score": 0.654513,
+      "expected_calibration_error": 0.099487,
+      "log_loss": 1.087121,
+      "ranked_probability_score": 0.227472
+    }
+  },
+  "contract_version": "ensemble-training-summary-v1",
+  "created_at": "2026-08-10T06:41:53.621986+00:00",
+  "current_official_benchmark": "phase_7_goals",
+  "deterministic": true,
+  "evaluation_disclosure": "Weights were selected on 2021/22 and 2022/23 development folds and calibrated on 2023/24. The 2024/25 and 2025/26 targets were not used for fitting, but their benchmark results had been inspected before Phase 11 was designed.",
+  "holdout": {
+    "accuracy": 0.5,
+    "brier_score": 0.611632,
+    "expected_calibration_error": 0.04921,
+    "log_loss": 1.01778,
+    "ranked_probability_score": 0.20875,
+    "sample_count": 760,
+    "seasons": [
+      "2024/25",
+      "2025/26"
+    ]
+  },
+  "model_type": "convex_probability_blend",
+  "model_version": "ensemble-v1-9380bb2fdd5b",
+  "promotion": {
+    "best_benchmark": "Phase 7 goals",
+    "log_loss_improvement": -0.008871,
+    "reason": "Did not improve holdout log loss over the Phase 7 goal model.",
+    "status": "rejected"
+  },
+  "scoreline_reconciliation": "outcome_partition_rescaling",
+  "selection": {
+    "candidate_count": 286,
+    "mean_development_brier_score": 0.580349,
+    "mean_development_log_loss": 0.975431,
+    "method": "development_fold_grid_search",
+    "weights": {
+      "elo": 0.9,
+      "goals": 0.0,
+      "player": 0.1,
+      "tabular": 0.0
+    }
+  },
+  "training_run": true,
+  "training_status": "completed_rejected"
+}

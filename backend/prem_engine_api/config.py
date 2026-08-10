@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     api_football_key: SecretStr | None = None
     api_football_daily_request_limit: int = 100
     api_football_audit_request_limit: int = 24
+    fpl_historical_base_url: str = (
+        "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data"
+    )
     historical_data_base_url: str = "https://www.football-data.co.uk/mmz4281"
     raw_data_root: Path = Path("data/raw")
     processed_data_root: Path = Path("data/processed")

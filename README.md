@@ -16,7 +16,10 @@ records that the standalone candidate did not pass the promotion gate against
 Elo and the goal model. Phase 10 adds canonical player context, expected lineups,
 availability and transfer features, plus a coverage-gated training path. Its
 reference model is safely blocked because historical player coverage is not yet
-adequate.
+adequate. A follow-up public historical FPL audit found 66,665 player-match
+performances across all 2,280 target fixtures and approved that source for a
+future player-strength import. No FPL records have yet been imported and the
+player model has not yet been trained.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -31,6 +34,7 @@ adequate.
 - [Phase 9 calibrated tabular model](docs/phase-9/CALIBRATED_TABULAR_MODEL.md)
 - [Phase 10 player impact and availability](docs/phase-10/PLAYER_IMPACT_AVAILABILITY.md)
 - [API-Football historical player coverage audit](data/contracts/api-football/README.md)
+- [Historical FPL player-data audit](data/contracts/fpl-historical/README.md)
 
 ## Development
 

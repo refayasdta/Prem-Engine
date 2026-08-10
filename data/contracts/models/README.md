@@ -13,3 +13,8 @@ Python serialization formats must not be loaded from untrusted sources.
 
 Committed evidence summaries currently cover the Phase 6 Elo baseline and the
 Phase 7 dynamic Poisson goal model. Full reports remain local artifacts.
+
+Phase 9 adds a rejected calibrated tabular candidate as negative research
+evidence. A committed summary may describe the experiment, but the binary remains
+ignored and its payload explicitly states that it is not approved for official
+forecasts.

@@ -48,3 +48,16 @@ promotion, confidence, and missingness features. Generate and validate it with:
 The default human report explains coverage and cutoff safety. Use `-OutputFormat
 json` for automation and `-Force` to explicitly replace an existing ignored
 export. See `docs/phase-8/FEATURE_ENGINEERING.md` for the complete contract.
+
+Phase 9 tests regularized multinomial logistic regression and constrained
+histogram gradient boosting with chronological selection and a separate
+temperature-calibration season. Run the human-readable comparison with:
+
+```powershell
+.\scripts\train-tabular-model.ps1
+```
+
+The reference candidate is rejected because it does not beat the established
+holdout benchmarks. Its immutable artifact remains research evidence and carries
+an explicit non-approved promotion status. See
+`docs/phase-9/CALIBRATED_TABULAR_MODEL.md` for the full decision.

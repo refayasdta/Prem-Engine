@@ -1,0 +1,43 @@
+{
+  "approved_for_official_forecasts": false,
+  "artifact_committed": false,
+  "calibration": {
+    "after_log_loss": 0.9507645236882811,
+    "before_log_loss": 0.9588502606024526,
+    "method": "single_temperature_scaling",
+    "season": "2023/24",
+    "temperature": 1.2666685186961506
+  },
+  "candidate_count": 12,
+  "contract_version": "tabular-model-reference-v1",
+  "deterministic": true,
+  "feature_count": 74,
+  "feature_dataset_checksum": "b90c1eb11def7c0fe31d347b95cb9a029e4b1697d8de552f9fff4df3f2a3e6ba",
+  "holdout": {
+    "accuracy": 0.48157894736842105,
+    "brier_score": 0.6545126957790129,
+    "expected_calibration_error": 0.09948735698251761,
+    "log_loss": 1.0871208969332888,
+    "ranked_probability_score": 0.22745985818748404
+  },
+  "model_type": "multinomial_logistic",
+  "model_checksum": "8ebbf352a0767e5a01ac2f66d502ffe445f7d98ac360bc927372ec2fd26be85b",
+  "model_version": "tabular-v1-9c3b284f4983",
+  "promotion": {
+    "best_benchmark": "Phase 7 goals",
+    "log_loss_improvement": -0.07821114540072127,
+    "reason": "Did not improve holdout log loss over the best established benchmark.",
+    "status": "rejected"
+  },
+  "random_seed": 42,
+  "selected_candidate": {
+    "candidate_id": "logistic-c-0.03",
+    "family": "multinomial_logistic",
+    "regularization_c": 0.03
+  },
+  "split": {
+    "base_training_seasons": ["2020/21", "2021/22", "2022/23"],
+    "calibration_season": "2023/24",
+    "holdout_seasons": ["2024/25", "2025/26"]
+  }
+}

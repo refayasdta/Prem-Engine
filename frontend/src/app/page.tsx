@@ -1,60 +1,137 @@
 import Link from "next/link";
-import { UpcomingMatches } from "./upcoming-matches";
+import { FixtureBoard } from "@/components/fixture-board";
+import { ProductShell } from "@/components/product-shell";
+import styles from "./product.module.css";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-midnight px-6 py-8 text-paper sm:px-10">
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl gap-4 lg:grid-cols-[240px_1fr]">
-        <aside className="border border-slate-violet bg-deep-violet p-5">
-          <p className="font-display text-4xl uppercase tracking-wide">Prem Engine</p>
-          <p className="mt-2 text-sm text-mist">Premier League forecasting + simulation</p>
-        </aside>
+    <ProductShell active="home">
+      <main className={styles.page} id="main-content">
+        <section className={styles.hero} aria-labelledby="hero-title">
+          <div className={styles.heroCopy}>
+            <div>
+              <p className={styles.eyebrow}>Premier League prediction engine</p>
+              <h1 id="hero-title">One league. Two timelines.</h1>
+              <p className={styles.heroLead}>
+                Every fixture receives one probabilistic forecast and one complete simulated
+                match, locked 24 hours before kickoff. Then reality gets the final word.
+              </p>
+              <div className={styles.heroActions}>
+                <Link className={styles.primaryButton} href="/fixtures">
+                  View fixtures
+                </Link>
+                <Link className={styles.secondaryButton} href="/#method">
+                  See the method
+                </Link>
+              </div>
+            </div>
+            <div className={styles.trustRow} aria-label="Forecast commitments">
+              <span>No regeneration</span>
+              <span>No bookmaker odds</span>
+              <span>No fictional live data</span>
+            </div>
+          </div>
+          <aside className={styles.enginePanel} aria-label="How the engine operates">
+            <div className={styles.engineTop}>
+              <span>Engine status</span>
+              <strong>Method locked</strong>
+            </div>
+            <div className={styles.engineCore}>
+              <div>
+                <b>T-24</b>
+                <p>
+                  <strong>Forecast</strong>
+                  <span>Expected score, outcome probabilities, lineup, and match statistics.</span>
+                </p>
+              </div>
+              <div>
+                <b>01:00</b>
+                <p>
+                  <strong>Replay</strong>
+                  <span>The stored match unfolds at one fixed presentation speed for everyone.</span>
+                </p>
+              </div>
+              <div>
+                <b>FT</b>
+                <p>
+                  <strong>Evaluate</strong>
+                  <span>Predictions remain visible and are measured against the real result.</span>
+                </p>
+              </div>
+            </div>
+            <div className={styles.engineBottom}>
+              <span>Official outcome model</span>
+              <strong>Phase 7 goals</strong>
+            </div>
+          </aside>
+        </section>
 
-        <section className="grid content-start gap-4">
-          <header className="border border-slate-violet bg-deep-violet p-6">
-            <p className="font-display text-xl uppercase tracking-widest text-mist">Phase 15</p>
-            <h1 className="mt-2 max-w-3xl font-display text-5xl leading-none sm:text-7xl">
-              One forecast. One stored match. Two tables.
-            </h1>
+        <section className={styles.section} aria-labelledby="fixtures-title">
+          <header className={styles.sectionHeader}>
+            <div>
+              <p className={styles.eyebrow}>Canonical fixture feed</p>
+              <h2 id="fixtures-title">Coming next</h2>
+            </div>
+            <p>
+              Only real clubs and matches from the internal database appear here. If the source is
+              unavailable, the site says so instead of substituting sample data.
+            </p>
           </header>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              ["Forecast", "Locked 24 hours before kickoff"],
-              ["Simulation", "Generated once and replayed"],
-              ["Reality", "Evaluated after full time"],
-            ].map(([title, detail]) => (
-              <article key={title} className="border border-slate-violet bg-midnight p-5">
-                <h2 className="font-display text-3xl uppercase">{title}</h2>
-                <p className="mt-8 text-sm text-mist">{detail}</p>
-              </article>
-            ))}
-          </div>
-
-          <div className="border border-slate-violet bg-midnight p-6">
-            <p className="font-display text-3xl uppercase">Upcoming real fixtures</p>
-            <p className="mt-2 max-w-2xl text-sm text-mist">
-              These links come from the canonical database. Each match counts down to automatic
-              T-24 generation and then reveals the same stored one-minute simulation to everyone.
-            </p>
-            <UpcomingMatches />
-          </div>
-
-          <div className="border border-slate-violet bg-paper p-6 text-midnight">
-            <p className="font-score text-xl leading-relaxed sm:text-3xl">DEVELOPER LAB</p>
-            <p className="mt-4 max-w-2xl text-sm text-deep-violet">
-              The Phase 13 replay remains a clearly labelled fictional interface test. It is not
-              an official Premier League forecast and is never shown in the real fixture list.
-            </p>
-            <Link
-              href="/simulation-preview"
-              className="mt-6 inline-block border border-deep-violet bg-deep-violet px-5 py-3 text-sm font-semibold uppercase tracking-widest text-paper transition-colors hover:bg-midnight"
-            >
-              Open fictional replay lab
+          <FixtureBoard />
+          <div className={styles.sectionActions}>
+            <Link className={styles.secondaryButton} href="/fixtures">
+              All fixtures
             </Link>
           </div>
         </section>
-      </div>
-    </main>
+
+        <section className={styles.section} id="method" aria-labelledby="method-title">
+          <header className={styles.sectionHeader}>
+            <div>
+              <p className={styles.eyebrow}>One transparent lifecycle</p>
+              <h2 id="method-title">How it works</h2>
+            </div>
+            <p>
+              The forecast is generated by the backend, never by a visitor pressing a button. One
+              official version remains accountable from prediction through evaluation.
+            </p>
+          </header>
+          <div className={styles.methodGrid}>
+            <article className={styles.methodCard}>
+              <span>01 / Before kickoff</span>
+              <h3>Forecast at T-24</h3>
+              <p>
+                The scheduled worker freezes the available evidence and creates the official
+                probabilities, expected lineup, score distribution, and statistics.
+              </p>
+            </article>
+            <article className={styles.methodCard}>
+              <span>02 / Stored once</span>
+              <h3>Reveal the simulation</h3>
+              <p>
+                Events and the final score already exist. The page only reveals that immutable
+                sequence over 60 seconds; there are no replay-speed or simulate controls.
+              </p>
+            </article>
+            <article className={styles.methodCard}>
+              <span>03 / After full time</span>
+              <h3>Compare with reality</h3>
+              <p>
+                The forecast stays unchanged while the real result and real table update. Phase
+                16B will make that comparison a first-class part of the product.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <aside className={styles.promise}>
+          <span>The Prem Engine promise</span>
+          <p>
+            A prediction that can be quietly rewritten is not a prediction. Every official match
+            is locked, traceable, and judged against what actually happened.
+          </p>
+        </aside>
+      </main>
+    </ProductShell>
   );
 }

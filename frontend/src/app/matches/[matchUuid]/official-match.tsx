@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ClubCrest } from "@/components/club-crest";
 import type {
-  ClubSummary,
   ForecastEvent,
   ForecastLineup,
   MatchForecast,
@@ -29,32 +29,20 @@ function percent(value: Numeric) {
 }
 
 function countdown(totalSeconds: number) {
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+  const remaining = Math.max(0, totalSeconds);
+  const days = Math.floor(remaining / 86400);
+  const hours = Math.floor((remaining % 86400) / 3600);
+  const minutes = Math.floor((remaining % 3600) / 60);
+  const seconds = remaining % 60;
   return `${days ? `${days}d ` : ""}${hours.toString().padStart(2, "0")}:${minutes
     .toString()
     .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function minute(event: ForecastEvent) {
+function eventMinute(event: ForecastEvent) {
   if (event.event_type === "full_time") return "FT";
   if (event.event_type === "half_time") return "HT";
   return `${event.minute}′`;
-}
-
-function Crest({ club }: { club: ClubSummary }) {
-  return (
-    <span
-      className={styles.crest}
-      style={club.crest_url ? { backgroundImage: `url(${club.crest_url})` } : undefined}
-      aria-label={`${club.name} crest`}
-      role="img"
-    >
-      {club.crest_url ? "" : club.short_name}
-    </span>
-  );
 }
 
 function Lineup({ lineup, side }: { lineup: ForecastLineup; side: TeamSide }) {
@@ -101,16 +89,16 @@ function WaitingState({ data }: { data: MatchForecast }) {
     live: "The stored simulation is being revealed.",
     complete: "The stored presentation is complete.",
   } as const;
+  const title = data.lifecycle_state === "countdown"
+    ? countdown(data.seconds_until_generation)
+    : data.lifecycle_state === "generating"
+      ? "Locking forecast…"
+      : "No active simulation";
+
   return (
-    <section className={styles.waiting}>
+    <section className={styles.waiting} role="status">
       <p className={styles.eyebrow}>{data.lifecycle_state}</p>
-      <h2>
-        {data.lifecycle_state === "countdown"
-          ? countdown(data.seconds_until_generation)
-          : data.lifecycle_state === "generating"
-            ? "Locking forecast…"
-            : "No active simulation"}
-      </h2>
+      <h2>{title}</h2>
       <p>{messages[data.lifecycle_state]}</p>
       <small>Scheduled generation: {new Date(data.prediction_due_at).toLocaleString("en-GB")}</small>
     </section>
@@ -149,15 +137,28 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
   }, [matchUuid]);
 
   const events = useMemo(() => data?.simulation?.events ?? [], [data?.simulation?.events]);
-  const feed = useMemo(() => events.filter((event) => event.event_type !== "kickoff").toReversed(), [events]);
+  const feed = useMemo(
+    () => events.filter((event) => event.event_type !== "kickoff").toReversed(),
+    [events],
+  );
 
-  if (!data && !error) return <main className={styles.state}>Loading official match…</main>;
-  if (!data) return <main className={styles.state}>{error}</main>;
+  if (!data) {
+    return (
+      <main className={styles.shell} id="main-content">
+        <section className={styles.state} role="status" aria-busy={!error}>
+          <span>{error ? "API" : "T-24"}</span>
+          <h1>{error ? "Official match unavailable" : "Loading official match"}</h1>
+          <p>
+            {error || "Connecting to the canonical match record. No sample teams will be shown."}
+          </p>
+          {error ? <small>The page will retry automatically.</small> : null}
+        </section>
+      </main>
+    );
+  }
 
   const simulation = data.simulation;
   const prediction = data.prediction;
-  const homeScore = simulation?.final_score?.home ?? simulation?.scoreboard_home ?? 0;
-  const awayScore = simulation?.final_score?.away ?? simulation?.scoreboard_away ?? 0;
   const footballMinute = Math.min(90, Math.floor(data.presentation.football_second / 60));
   const phaseLabel = data.presentation.complete
     ? "FULL TIME"
@@ -166,7 +167,12 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
       : `${footballMinute.toString().padStart(2, "0")}:00`;
 
   return (
-    <main className={styles.shell}>
+    <main className={styles.shell} id="main-content">
+      {error ? (
+        <div className={styles.connectionNotice} role="status">
+          Live connection interrupted. Showing the most recent verified state while retrying.
+        </div>
+      ) : null}
       <header className={styles.meta}>
         <div>
           <p className={styles.eyebrow}>Premier League · stored T-24 forecast</p>
@@ -175,19 +181,23 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
         <span className={styles.status}>{data.lifecycle_state}</span>
       </header>
 
-      <section className={styles.scoreboard}>
+      <section className={styles.scoreboard} aria-label={`${data.home.name} versus ${data.away.name}`}>
         <div className={styles.team}>
-          <Crest club={data.home} />
+          <ClubCrest club={data.home} size="large" />
           <div><small>Home</small><h1>{data.home.name}</h1></div>
         </div>
         <div className={styles.scoreCenter}>
           <time>{simulation ? phaseLabel : "T-24"}</time>
-          <p>{homeScore}<span>:</span>{awayScore}</p>
+          <p>
+            {simulation ? simulation.final_score?.home ?? simulation.scoreboard_home : "—"}
+            <span>:</span>
+            {simulation ? simulation.final_score?.away ?? simulation.scoreboard_away : "—"}
+          </p>
           <small>{simulation ? "Automatic 01:00 presentation" : "Awaiting stored simulation"}</small>
         </div>
         <div className={`${styles.team} ${styles.away}`}>
           <div><small>Away</small><h1>{data.away.name}</h1></div>
-          <Crest club={data.away} />
+          <ClubCrest club={data.away} size="large" />
         </div>
       </section>
 
@@ -195,7 +205,7 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
         <WaitingState data={data} />
       ) : (
         <>
-          <section className={styles.forecast}>
+          <section className={styles.forecast} aria-label="Outcome forecast">
             <div><span>Home win</span><strong>{percent(prediction.home_win_probability)}</strong></div>
             <div><span>Draw</span><strong>{percent(prediction.draw_probability)}</strong></div>
             <div><span>Away win</span><strong>{percent(prediction.away_win_probability)}</strong></div>
@@ -209,13 +219,16 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
             <section className={styles.mainColumn}>
               <article className={styles.panel}>
                 <header className={styles.panelHeader}>
-                  <div><p className={styles.eyebrow}>Synchronized event stream</p><h2>Match commentary</h2></div>
+                  <div>
+                    <p className={styles.eyebrow}>Synchronized event stream</p>
+                    <h2>Match commentary</h2>
+                  </div>
                   <span>{events.length} revealed</span>
                 </header>
                 <div className={styles.feed} aria-live="polite">
                   {feed.length ? feed.slice(0, 14).map((event) => (
                     <div className={styles.event} key={event.event_id}>
-                      <time>{minute(event)}</time>
+                      <time>{eventMinute(event)}</time>
                       <b>{event.event_type.replaceAll("_", " ")}</b>
                       <p>{event.commentary}</p>
                       <strong>{event.home_score}:{event.away_score}</strong>
@@ -226,23 +239,34 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
 
               <article className={styles.panel}>
                 <header className={styles.panelHeader}>
-                  <div><p className={styles.eyebrow}>Match statistics</p><h2>{data.presentation.complete ? "Final" : "As revealed"}</h2></div>
+                  <div>
+                    <p className={styles.eyebrow}>Match statistics</p>
+                    <h2>{data.presentation.complete ? "Final simulation" : "As revealed"}</h2>
+                  </div>
                 </header>
                 <div className={styles.statistics}>
                   {STATISTICS.map(([label, key]) => {
                     const home = simulation.visible_statistics[`home_${key}`] ?? 0;
                     const away = simulation.visible_statistics[`away_${key}`] ?? 0;
                     const total = Math.max(1, home + away);
-                    return <div className={styles.stat} key={key}>
-                      <strong>{home}</strong>
-                      <div><span>{label}</span><i><b style={{ width: `${home / total * 100}%` }} /><em style={{ width: `${away / total * 100}%` }} /></i></div>
-                      <strong>{away}</strong>
-                    </div>;
+                    return (
+                      <div className={styles.stat} key={key}>
+                        <strong>{home}</strong>
+                        <div>
+                          <span>{label}</span>
+                          <i aria-hidden="true">
+                            <b style={{ width: `${home / total * 100}%` }} />
+                            <em style={{ width: `${away / total * 100}%` }} />
+                          </i>
+                        </div>
+                        <strong>{away}</strong>
+                      </div>
+                    );
                   })}
                 </div>
               </article>
             </section>
-            <aside className={styles.lineups}>
+            <aside className={styles.lineups} aria-label="Expected lineups">
               <Lineup lineup={prediction.expected_lineups.home} side="home" />
               <Lineup lineup={prediction.expected_lineups.away} side="away" />
             </aside>

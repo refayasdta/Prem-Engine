@@ -7,7 +7,7 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 15 are complete. The platform foundation now includes audited,
+Phases 1 through 15 and Phase 16A are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
 Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
@@ -40,10 +40,12 @@ full-time. Phase 15 adds 34 leakage-safe observed-shape and measurable
 style-proxy features. Its readiness build covers all 2,280 fixtures and passed
 the training gate. The user's manual run completed, but the tactical candidate
 was worse than Phase 7 on every primary holdout measure and was rejected. The
-frontend now lists real
-canonical fixtures and displays their real clubs, crests, expected players, and
-stored synchronized simulations under `/matches/{match_uuid}`. The fictional
-Phase 13 route remains clearly separated as a developer lab.
+frontend lists real canonical fixtures and displays their real clubs, crests,
+expected players, and stored synchronized simulations under
+`/matches/{match_uuid}`. Phase 16A completes the public-facing product shell,
+dashboard, fixture index, match lifecycle states, five-color responsive design,
+accessibility baseline, and share metadata. The fictional Phase 13 route remains
+outside normal product navigation as an isolated developer lab.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -67,6 +69,7 @@ Phase 13 route remains clearly separated as a developer lab.
 - [Phase 14 automated forecast lifecycle](docs/phase-14/AUTOMATED_FORECAST_LIFECYCLE.md)
 - [Phase 15 tactical inference and real-data UI](docs/phase-15/TACTICAL_INFERENCE_AND_REAL_UI.md)
 - [Phase 15 tactical training result](data/contracts/models/TACTICAL_MODEL_TRAINING_RESULT.md)
+- [Phase 16A core product UI](docs/phase-16a/CORE_PRODUCT_UI.md)
 
 ## Development
 
@@ -153,3 +156,11 @@ outcome and scoreline model.
 For the real-data browser path, start FastAPI on port 8000 and the frontend on
 port 3000. The homepage lists canonical upcoming fixtures and links to
 `/matches/{match_uuid}`. The fictional `/simulation-preview` is only a lab.
+
+## Phase 16A product UI
+
+Start the backend and frontend, then open `http://localhost:3000`. The public
+product includes the dashboard, `/fixtures`, and official match pages. It never
+substitutes fictional clubs or players when canonical data is missing. The two
+standings views and post-match evaluation are deliberately reserved for Phase
+16B; deployment and production operations are reserved for Phase 16C.

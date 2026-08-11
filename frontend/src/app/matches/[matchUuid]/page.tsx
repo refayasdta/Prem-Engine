@@ -1,6 +1,5 @@
-import Link from "next/link";
+import { ProductShell } from "@/components/product-shell";
 import { OfficialMatch } from "./official-match";
-import styles from "./match.module.css";
 
 export default async function MatchPage({
   params,
@@ -9,14 +8,8 @@ export default async function MatchPage({
 }) {
   const { matchUuid } = await params;
   return (
-    <div className={styles.page}>
-      <nav className={styles.nav}>
-        <Link href="/" className={styles.brand}>
-          Prem Engine
-        </Link>
-        <span>Official synchronized forecast</span>
-      </nav>
+    <ProductShell active={null}>
       <OfficialMatch matchUuid={matchUuid} />
-    </div>
+    </ProductShell>
   );
 }

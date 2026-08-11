@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import styles from "@/app/product.module.css";
 
-type ProductRoute = "home" | "fixtures";
+type ProductRoute = "home" | "fixtures" | "standings" | "evaluation" | "model" | "donate";
 
 export function ProductShell({
   active,
@@ -36,13 +36,30 @@ export function ProductShell({
           >
             Fixtures
           </Link>
-          <Link href="/#method">Method</Link>
+          <Link
+            href="/standings"
+            aria-current={active === "standings" ? "page" : undefined}
+          >
+            Tables
+          </Link>
+          <Link
+            href="/evaluation"
+            aria-current={active === "evaluation" ? "page" : undefined}
+          >
+            Evaluation
+          </Link>
+          <Link href="/model" aria-current={active === "model" ? "page" : undefined}>
+            Model
+          </Link>
+          <Link href="/donate" aria-current={active === "donate" ? "page" : undefined}>
+            Donate
+          </Link>
         </nav>
         <div className={styles.modelBadge} title="Approved official outcome model">
           <span aria-hidden="true" />
           <div>
             <small>Official model</small>
-            <strong>Phase 7 goals</strong>
+            <strong>OptiMatch Model</strong>
           </div>
         </div>
       </header>
@@ -51,11 +68,6 @@ export function ProductShell({
         <div>
           <strong>Prem Engine</strong>
           <span>Probabilities, stored simulations, and honest evaluation.</span>
-        </div>
-        <div className={styles.footerFacts}>
-          <span>T-24 automatic lock</span>
-          <span>60-second synchronized replay</span>
-          <span>Phase 7 official</span>
         </div>
       </footer>
     </div>

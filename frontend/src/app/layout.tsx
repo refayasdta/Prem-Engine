@@ -31,15 +31,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const protocol = forwardedProtocol || (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "Prem Engine | One League. Two Timelines.";
+  const title = "Prem Engine";
   const imageUrl = `${origin}/og.png`;
 
   return {
     metadataBase: new URL(origin),
-    title: {
-      default: title,
-      template: "%s | Prem Engine",
-    },
+    title,
     description,
     applicationName: "Prem Engine",
     robots: { index: true, follow: true },

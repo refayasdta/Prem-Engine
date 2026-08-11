@@ -1,0 +1,226 @@
+.donatePage {
+  display: grid;
+  min-height: calc(100vh - 222px);
+  grid-template-rows: 1fr auto;
+}
+
+.donatePanel {
+  display: grid;
+  min-height: 650px;
+  place-items: center;
+  align-content: center;
+  gap: clamp(34px, 6vw, 64px);
+  padding: clamp(32px, 6vw, 84px);
+  border: 1px solid var(--slate-violet);
+  background: var(--midnight);
+}
+
+.donateIntro {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.donateIntro h1 {
+  margin: 18px 0 12px;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(4.5rem, 10vw, 9rem);
+  font-weight: 400;
+  line-height: 0.78;
+  text-transform: uppercase;
+}
+
+.donateIntro > p:last-child {
+  margin: 0;
+  color: var(--mist);
+  line-height: 1.5;
+}
+
+.cardArea {
+  display: grid;
+  width: min(620px, 100%);
+  justify-items: center;
+}
+
+.bankCard {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 285px;
+  align-content: space-between;
+  padding: clamp(26px, 5vw, 44px);
+  overflow: hidden;
+  border: 1px solid var(--mist);
+  background:
+    linear-gradient(135deg, transparent 58%, var(--slate-violet) 58% 59%, transparent 59%),
+    var(--deep-violet);
+  color: var(--paper);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: transform 220ms ease, background-color 220ms ease, color 220ms ease;
+}
+
+.bankCard::after {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--mist);
+  content: "";
+}
+
+.bankCard:hover {
+  transform: translateY(-4px);
+}
+
+.bankCard:focus-visible {
+  outline: 3px solid var(--paper);
+  outline-offset: 5px;
+}
+
+.bankCard[data-status="copied"] {
+  background: var(--paper);
+  color: var(--midnight);
+}
+
+.bankName,
+.accountHolder,
+.copyPrompt {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.bankName {
+  width: max-content;
+  padding: 8px 11px;
+  border: 1px solid currentColor;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.accountHolder {
+  align-self: end;
+  margin-top: 54px;
+  color: var(--mist);
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.bankCard[data-status="copied"] .accountHolder {
+  color: var(--slate-violet);
+}
+
+.accountNumber {
+  margin-top: 8px;
+  font-family: var(--font-score), sans-serif;
+  font-size: clamp(1.65rem, 5vw, 3.2rem);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.copyPrompt {
+  margin-top: 24px;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.statusMessage {
+  min-height: 24px;
+  margin: 12px 0 0;
+  color: var(--mist);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.thankYou {
+  position: fixed;
+  z-index: 10;
+  bottom: 28px;
+  left: 50%;
+  width: min(560px, calc(100% - 32px));
+  padding: 22px 28px;
+  border: 1px solid var(--mist);
+  background: var(--paper);
+  color: var(--midnight);
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.5rem, 4vw, 2.7rem);
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(100% + 80px));
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease;
+}
+
+.thankYouVisible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.creatorAction {
+  display: flex;
+  justify-content: center;
+  padding: 30px 18px 10px;
+}
+
+.creatorAction a {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border: 1px solid var(--mist);
+  background: var(--deep-violet);
+  color: var(--paper);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.creatorAction a:hover,
+.creatorAction a:focus-visible {
+  background: var(--mist);
+  color: var(--midnight);
+}
+
+.creatorAction a:focus-visible {
+  outline: 3px solid var(--paper);
+  outline-offset: 4px;
+}
+
+@media (max-width: 520px) {
+  .donatePanel {
+    min-height: 590px;
+    padding-inline: 18px;
+  }
+
+  .bankCard {
+    min-height: 250px;
+  }
+
+  .bankCard::after {
+    top: 18px;
+    right: 18px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .accountNumber {
+    letter-spacing: 0.04em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bankCard,
+  .thankYou {
+    transition: none;
+  }
+
+  .bankCard:hover {
+    transform: none;
+  }
+}

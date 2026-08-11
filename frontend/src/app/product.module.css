@@ -67,6 +67,7 @@
   justify-content: center;
   border: 1px solid var(--slate-violet);
   background: var(--midnight);
+  overflow-x: auto;
 }
 
 .navigation a {
@@ -569,6 +570,23 @@
   line-height: 1.55;
 }
 
+.methodCard .secondaryButton {
+  margin-top: 28px;
+}
+
+.modelExplanation {
+  padding: clamp(30px, 5vw, 66px);
+}
+
+.modelExplanation p {
+  max-width: 1100px;
+  margin: 0;
+  color: var(--mist);
+  font-size: clamp(1.15rem, 2.3vw, 1.7rem);
+  line-height: 1.6;
+  text-align: justify;
+}
+
 .promise {
   display: grid;
   grid-template-columns: 190px 1fr;
@@ -689,15 +707,6 @@
   font-size: 0.7rem;
 }
 
-.footerFacts {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
 @keyframes fixture-pulse {
   to {
     background-position: -200% 0;
@@ -762,6 +771,14 @@
 
   .modelBadge {
     display: none;
+  }
+
+  .navigation {
+    justify-content: flex-start;
+  }
+
+  .navigation a {
+    flex: 0 0 auto;
   }
 
   .heroCopy {
@@ -833,10 +850,6 @@
     display: grid;
     padding-block: 28px;
   }
-
-  .footerFacts {
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 520px) {
@@ -884,6 +897,7 @@
   .pageIntroAside {
     min-width: 0;
   }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

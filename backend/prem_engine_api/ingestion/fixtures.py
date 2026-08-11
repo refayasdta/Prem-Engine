@@ -10,7 +10,12 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prem_engine_api.domain.enums import FixtureStatus, IdentityReviewStatus, ResultKind
+from prem_engine_api.domain.enums import (
+    FixtureStatus,
+    IdentityReviewStatus,
+    PredictionState,
+    ResultKind,
+)
 from prem_engine_api.domain.lifecycle import cancel_match, postpone_match, reschedule_match
 from prem_engine_api.domain.models import (
     ActualResultRevision,
@@ -22,6 +27,7 @@ from prem_engine_api.domain.models import (
     IdentityReviewCase,
     Match,
     MatchExternalReference,
+    PredictionVersion,
     Season,
 )
 from prem_engine_api.providers.kickoffapi.contracts import (
@@ -438,4 +444,12 @@ class FixtureIngestor:
                 observed_at=observed_at,
             )
         )
+        prediction = await self._session.scalar(
+            select(PredictionVersion).where(
+                PredictionVersion.match_uuid == match.match_uuid,
+                PredictionVersion.state == PredictionState.ACTIVE_LOCKED,
+            )
+        )
+        if prediction is not None:
+            prediction.state = PredictionState.EVALUATED
         return True

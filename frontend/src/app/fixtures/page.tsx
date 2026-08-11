@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { FixtureBoard } from "@/components/fixture-board";
 import { ProductShell } from "@/components/product-shell";
 import styles from "../product.module.css";
+
+export const metadata: Metadata = {
+  title: "Fixtures",
+};
 
 export default function FixturesPage() {
   return (

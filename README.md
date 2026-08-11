@@ -7,7 +7,7 @@ standings are maintained separately.
 
 ## Project status
 
-Phases 1 through 15 and Phase 16A are complete. The platform foundation now includes audited,
+Phases 1 through 15 and Phases 16A–16B are complete. The platform foundation now includes audited,
 quota-aware KickoffAPI ingestion plus a provenance-preserving historical match
 pipeline, a chronologically evaluated three-outcome Elo baseline, and a dynamic
 Poisson goal and scoreline model backed by a strict 24-hour pre-match feature
@@ -45,7 +45,9 @@ expected players, and stored synchronized simulations under
 `/matches/{match_uuid}`. Phase 16A completes the public-facing product shell,
 dashboard, fixture index, match lifecycle states, five-color responsive design,
 accessibility baseline, and share metadata. The fictional Phase 13 route remains
-outside normal product navigation as an isolated developer lab.
+outside normal product navigation as an isolated developer lab. Phase 16B adds
+internally calculated real, simulated, and same-fixture comparison tables plus
+live evaluation of every official forecast paired with an accepted real result.
 
 - [Phase 1 feasibility report](docs/phase-1/FEASIBILITY_REPORT.md)
 - [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
@@ -70,6 +72,7 @@ outside normal product navigation as an isolated developer lab.
 - [Phase 15 tactical inference and real-data UI](docs/phase-15/TACTICAL_INFERENCE_AND_REAL_UI.md)
 - [Phase 15 tactical training result](data/contracts/models/TACTICAL_MODEL_TRAINING_RESULT.md)
 - [Phase 16A core product UI](docs/phase-16a/CORE_PRODUCT_UI.md)
+- [Phase 16B standings and evaluation](docs/phase-16b/STANDINGS_AND_EVALUATION.md)
 
 ## Development
 
@@ -162,5 +165,13 @@ port 3000. The homepage lists canonical upcoming fixtures and links to
 Start the backend and frontend, then open `http://localhost:3000`. The public
 product includes the dashboard, `/fixtures`, and official match pages. It never
 substitutes fictional clubs or players when canonical data is missing. The two
-standings views and post-match evaluation are deliberately reserved for Phase
-16B; deployment and production operations are reserved for Phase 16C.
+standings views and post-match evaluation are delivered in Phase 16B. Deployment
+and production operations are reserved for Phase 16C.
+
+## Phase 16B standings and evaluation
+
+With the backend and frontend running, open `/standings` for the separate real
+and simulated tables and `/evaluation` for live official-forecast metrics. The
+fair-comparison table uses only fixtures that have both a stored simulation and
+an accepted real result, preventing unequal matches-played counts from distorting
+the comparison. See the Phase 16B guide for metric definitions and exclusions.

@@ -1,5 +1,8 @@
 import { proxyBackend } from "@/lib/backend-proxy";
+import { rateLimited } from "@/lib/rate-limited-route";
 
 export async function GET(request: Request) {
-  return proxyBackend(`/api/standings${new URL(request.url).search}`);
+  return rateLimited(request, () =>
+    proxyBackend(`/api/standings${new URL(request.url).search}`),
+  );
 }

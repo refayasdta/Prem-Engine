@@ -10,7 +10,10 @@ from prem_engine_api.config import Settings
 from prem_engine_api.domain.enums import ProviderRequestStatus
 from prem_engine_api.domain.models import ProviderRequest, RawFetch
 from prem_engine_api.ingestion.sync import sync_fixtures
-from prem_engine_api.providers.kickoffapi.client import KickoffApiClient
+from prem_engine_api.providers.kickoffapi.client import (
+    KickoffApiClient,
+    ProviderMinuteBudgetExhaustedError,
+)
 from prem_engine_api.providers.raw_storage import LocalRawResponseStore
 from pydantic import SecretStr
 from sqlalchemy import func, select
@@ -94,3 +97,42 @@ async def test_client_accounts_for_and_captures_each_response(
     assert request_row.rate_limit == 100
     assert request_row.rate_remaining == 84
     assert request_row.provider_request_id == "request-test"
+
+
+@pytest.mark.asyncio
+async def test_client_stops_before_operational_minute_ceiling(
+    db_session: AsyncSession, tmp_path: Path
+) -> None:
+    connection = await db_session.connection()
+    session_factory = async_sessionmaker(bind=connection, expire_on_commit=False)
+    requested_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={"data": []},
+            headers={"X-RateLimit-Limit": "30", "X-RateLimit-Remaining": "29"},
+            request=request,
+        )
+
+    settings = Settings(
+        kickoff_api_key=SecretStr("test-secret"),
+        kickoff_operational_minute_limit=2,
+        raw_data_root=tmp_path,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://api.kickoffapi.com"
+    ) as http_client:
+        client = KickoffApiClient(
+            settings=settings,
+            session_factory=session_factory,
+            raw_store=LocalRawResponseStore(tmp_path),
+            http_client=http_client,
+        )
+        await client.get("/api/v2/injuries")
+        await client.get("/api/v2/transfers")
+        with pytest.raises(ProviderMinuteBudgetExhaustedError):
+            await client.get("/api/v2/players")
+
+    assert requested_paths == ["/api/v2/injuries", "/api/v2/transfers"]

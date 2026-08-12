@@ -22,12 +22,15 @@ from prem_engine_api.forecasting.inference import (
 from prem_engine_api.forecasting.lineups import LineupCoverageError
 from prem_engine_api.jobs.leases import (
     GENERATE_PREDICTION_JOB,
+    RECALCULATE_SIMULATED_STANDINGS_JOB,
     JobLeaseError,
     claim_due_jobs,
+    complete_job,
     enqueue_prediction_jobs,
     fail_job,
     start_job,
 )
+from prem_engine_api.jobs.standings import recalculate_simulated_standings
 
 logger = structlog.get_logger()
 
@@ -38,6 +41,7 @@ class DispatchSummary:
     jobs_claimed: int
     forecasts_created: int
     forecasts_reused: int
+    standings_recalculated: int
     jobs_retried: int
     jobs_failed: int
 
@@ -77,12 +81,13 @@ async def dispatch_once(
             lease_duration=timedelta(seconds=settings.forecast_job_lease_seconds),
             limit=settings.forecast_dispatch_batch_size,
             max_attempts=settings.forecast_job_max_attempts,
-            job_types=(GENERATE_PREDICTION_JOB,),
+            job_types=(GENERATE_PREDICTION_JOB, RECALCULATE_SIMULATED_STANDINGS_JOB),
         )
         await session.commit()
 
     created = 0
     reused = 0
+    standings_recalculated = 0
     retried = 0
     failed = 0
     for claimed_job in claimed:
@@ -99,22 +104,39 @@ async def dispatch_once(
                 )
                 await session.commit()
             async with session_factory() as session:
-                package = await factory.build(
-                    session,
-                    match_uuid=claimed_job.match_uuid,
-                    cutoff=(await _job_cutoff(session, claimed_job.match_uuid)),
-                )
-                outcome = await lock_forecast(
-                    session,
-                    job_uuid=claimed_job.job_uuid,
-                    worker_id=worker_id,
-                    package=package,
-                    locked_at=datetime.now(UTC),
-                    presentation_duration_seconds=settings.simulation_presentation_seconds,
-                )
+                completed_at = datetime.now(UTC)
+                if claimed_job.job_type == GENERATE_PREDICTION_JOB:
+                    package = await factory.build(
+                        session,
+                        match_uuid=claimed_job.match_uuid,
+                        cutoff=(await _job_cutoff(session, claimed_job.match_uuid)),
+                    )
+                    outcome = await lock_forecast(
+                        session,
+                        job_uuid=claimed_job.job_uuid,
+                        worker_id=worker_id,
+                        package=package,
+                        locked_at=completed_at,
+                        presentation_duration_seconds=settings.simulation_presentation_seconds,
+                    )
+                    created += int(outcome.created)
+                    reused += int(not outcome.created)
+                elif claimed_job.job_type == RECALCULATE_SIMULATED_STANDINGS_JOB:
+                    await recalculate_simulated_standings(
+                        session,
+                        match_uuid=claimed_job.match_uuid,
+                        as_of=completed_at,
+                    )
+                    await complete_job(
+                        session,
+                        job_uuid=claimed_job.job_uuid,
+                        worker_id=worker_id,
+                        now=completed_at,
+                    )
+                    standings_recalculated += 1
+                else:  # pragma: no cover - protected by the lease filter
+                    raise RuntimeError("dispatcher claimed an unsupported job type")
                 await session.commit()
-                created += int(outcome.created)
-                reused += int(not outcome.created)
         except Exception as error:
             code = _error_code(error)
             logger.exception(
@@ -150,6 +172,7 @@ async def dispatch_once(
         jobs_claimed=len(claimed),
         forecasts_created=created,
         forecasts_reused=reused,
+        standings_recalculated=standings_recalculated,
         jobs_retried=retried,
         jobs_failed=failed,
     )

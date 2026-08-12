@@ -19,6 +19,7 @@ from prem_engine_api.domain.enums import (
 from prem_engine_api.domain.models import FixtureScheduleRevision, JobRun, Match
 
 GENERATE_PREDICTION_JOB = "generate_prediction"
+RECALCULATE_SIMULATED_STANDINGS_JOB = "recalculate_simulated_standings"
 
 
 class JobLeaseError(RuntimeError):
@@ -187,3 +188,22 @@ async def fail_job(
         job.finished_at = None
     await session.flush()
     return job.status
+
+
+async def complete_job(
+    session: AsyncSession, *, job_uuid: UUID, worker_id: str, now: datetime
+) -> JobRun:
+    """Atomically finish a running job still owned by the active worker."""
+
+    _aware(now, "job completion time")
+    job = await session.scalar(select(JobRun).where(JobRun.job_uuid == job_uuid).with_for_update())
+    if job is None or job.status is not JobStatus.RUNNING or job.lease_owner != worker_id:
+        raise JobLeaseError("running job is not owned by this worker")
+    if job.lease_expires_at is None or job.lease_expires_at <= now:
+        raise JobLeaseError("job lease expired before completion")
+    job.status = JobStatus.SUCCEEDED
+    job.finished_at = now
+    job.lease_owner = None
+    job.lease_expires_at = None
+    await session.flush()
+    return job

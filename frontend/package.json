@@ -1,11 +1,13 @@
 {
   "name": "frontend",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "node --experimental-strip-types --test src/lib/rate-limit.test.ts src/lib/official-forecast-poller.test.ts",
     "lint": "eslint src next.config.ts eslint.config.mjs postcss.config.mjs --max-warnings=0",
     "typecheck": "tsc --noEmit"
   },

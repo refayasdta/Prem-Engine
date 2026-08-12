@@ -73,6 +73,10 @@ live evaluation of every official forecast paired with an accepted real result.
 - [Phase 15 tactical training result](data/contracts/models/TACTICAL_MODEL_TRAINING_RESULT.md)
 - [Phase 16A core product UI](docs/phase-16a/CORE_PRODUCT_UI.md)
 - [Phase 16B standings and evaluation](docs/phase-16b/STANDINGS_AND_EVALUATION.md)
+- [Rate-limiting security controls](docs/security/RATE_LIMITING.md)
+- [T-24 forecast rehearsal](docs/security/T24_REHEARSAL.md)
+- [Pre-deployment operational hardening](docs/security/PRE_DEPLOYMENT_OPERATIONS.md)
+- [Deployment runbook](docs/deployment/DEPLOYMENT_RUNBOOK.md)
 
 ## Development
 
@@ -139,8 +143,21 @@ one local dispatcher cycle with:
 
 Production scheduling will invoke the same one-shot command every minute. A
 cycle creates any missing current-revision jobs, leases a bounded due batch, and
-generates each complete prediction transactionally. The browser reads
+generates each complete prediction transactionally. It also consumes the queued
+simulated-standings recalculation after the stored presentation becomes fully
+revealable. The browser reads
 `GET /api/matches/{match_uuid}/forecast`; users never press a simulate button.
+
+Refresh current squads, availability, transfers, confirmed lineups, and
+post-match player performances with a quota-bounded cycle:
+
+```powershell
+.\scripts\sync-player-context.ps1 -Season 2026
+```
+
+The default uses no more than 16 KickoffAPI requests and is intended for one
+daily scheduler invocation. See the operational-hardening guide for its request
+distribution and the independent daily and rolling-minute safeguards.
 
 ## Phase 15 tactical workflow
 

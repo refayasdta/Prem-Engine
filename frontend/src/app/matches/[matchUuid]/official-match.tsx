@@ -9,6 +9,7 @@ import type {
   Numeric,
   TeamSide,
 } from "@/lib/forecast-types";
+import { subscribeOfficialForecast } from "@/lib/official-forecast-poller";
 import styles from "./match.module.css";
 
 const STATISTICS = [
@@ -110,30 +111,13 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const response = await fetch(`/api/matches/${encodeURIComponent(matchUuid)}/forecast`, {
-          cache: "no-store",
-        });
-        const payload = (await response.json()) as MatchForecast | { detail?: string };
-        if (!response.ok) {
-          throw new Error("detail" in payload ? payload.detail : "Match forecast is unavailable.");
-        }
-        if (active) {
-          setData(payload as MatchForecast);
-          setError("");
-        }
-      } catch (reason) {
-        if (active) setError(reason instanceof Error ? reason.message : "Could not load forecast.");
-      }
-    };
-    void load();
-    const timer = window.setInterval(load, 1000);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
+    return subscribeOfficialForecast(matchUuid, {
+      onData: (forecast) => {
+        setData(forecast);
+        setError("");
+      },
+      onError: setError,
+    });
   }, [matchUuid]);
 
   const events = useMemo(() => data?.simulation?.events ?? [], [data?.simulation?.events]);

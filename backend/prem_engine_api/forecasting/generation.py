@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
@@ -322,7 +322,7 @@ async def lock_forecast(
                 job_type="recalculate_simulated_standings",
                 status=JobStatus.PENDING,
                 match_uuid=match.match_uuid,
-                due_at=locked_at,
+                due_at=locked_at + timedelta(seconds=presentation_duration_seconds),
                 attempt_count=0,
             ),
         )

@@ -8,14 +8,14 @@ export default function NotFound() {
       <main className={styles.page} id="main-content">
         <section className={styles.systemState}>
           <span>404</span>
-          <h1>That page is off the fixture list</h1>
+          <h1>That page could not be found</h1>
           <p>
-            The address does not match a current Prem Engine page. Return to the canonical fixture
-            feed rather than following an invented match.
+            The address may be incorrect, or the page may have moved or no longer exists. Use the
+            navigation above or return to the dashboard.
           </p>
           <div className={styles.heroActions}>
-            <Link className={styles.primaryButton} href="/fixtures">View fixtures</Link>
-            <Link className={styles.secondaryButton} href="/">Dashboard</Link>
+            <Link className={styles.primaryButton} href="/">Return to dashboard</Link>
+            <Link className={styles.secondaryButton} href="/fixtures">View fixtures</Link>
           </div>
         </section>
       </main>

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from prem_engine_api.config import Settings
@@ -32,6 +32,10 @@ class ProviderContractError(RuntimeError):
 
 class ProviderRateWindowExhaustedError(RuntimeError):
     """Raised locally when the latest provider response reports no remaining calls."""
+
+
+class ProviderMinuteBudgetExhaustedError(RuntimeError):
+    """Raised before exceeding Prem Engine's conservative rolling-minute ceiling."""
 
 
 @dataclass(frozen=True)
@@ -123,6 +127,21 @@ class KickoffApiClient:
                 operational_limit=self._settings.kickoff_operational_request_limit,
                 hard_limit=self._settings.kickoff_daily_request_limit,
             )
+            recent_request_count = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(ProviderRequest)
+                    .where(
+                        ProviderRequest.provider == PROVIDER,
+                        ProviderRequest.requested_at >= now - timedelta(minutes=1),
+                    )
+                )
+                or 0
+            )
+            if recent_request_count >= self._settings.kickoff_operational_minute_limit:
+                raise ProviderMinuteBudgetExhaustedError(
+                    "KickoffAPI operational rolling-minute request limit reached"
+                )
             session.add(
                 ProviderRequest(
                     provider_request_uuid=provider_request_uuid,

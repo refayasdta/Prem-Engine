@@ -224,6 +224,11 @@ async def test_forecast_is_locked_atomically_and_generation_is_idempotent(
     )
     assert simulation is not None
     assert simulation.presentation_duration_seconds == 60
+    standings_job = await db_session.scalar(
+        select(JobRun).where(JobRun.job_type == "recalculate_simulated_standings")
+    )
+    assert standings_job is not None
+    assert standings_job.due_at == due + timedelta(seconds=62)
     assert await db_session.scalar(select(func.count()).select_from(LifecycleEvent)) == 1
 
     with pytest.raises(DBAPIError), db_session.no_autoflush:

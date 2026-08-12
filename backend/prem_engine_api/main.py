@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from prem_engine_api.api.forecasts import router as forecast_router
 from prem_engine_api.api.insights import router as insights_router
 from prem_engine_api.config import get_settings
+from prem_engine_api.rate_limit import RateLimitMiddleware
 
 
 class HealthResponse(BaseModel):
@@ -27,6 +28,12 @@ def create_app() -> FastAPI:
         description="Forecast, simulation, standings, and evaluation API.",
         version="0.1.0",
     )
+    if settings.api_rate_limit_enabled:
+        app.add_middleware(
+            RateLimitMiddleware,
+            limit=settings.api_rate_limit_requests,
+            window_seconds=settings.api_rate_limit_window_seconds,
+        )
     app.include_router(forecast_router)
     app.include_router(insights_router)
 

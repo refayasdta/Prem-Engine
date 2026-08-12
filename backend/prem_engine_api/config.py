@@ -18,10 +18,14 @@ class Settings(BaseSettings):
     kickoff_api_key: SecretStr | None = None
     kickoff_daily_request_limit: int = 100
     kickoff_operational_request_limit: int = 85
+    kickoff_operational_minute_limit: PositiveInt = 25
     api_football_base_url: str = "https://v3.football.api-sports.io"
     api_football_key: SecretStr | None = None
     api_football_daily_request_limit: int = 100
     api_football_audit_request_limit: int = 24
+    api_rate_limit_enabled: bool = True
+    api_rate_limit_requests: PositiveInt = 300
+    api_rate_limit_window_seconds: PositiveInt = 60
     fpl_historical_base_url: str = (
         "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data"
     )

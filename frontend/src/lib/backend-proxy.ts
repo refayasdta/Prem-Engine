@@ -7,9 +7,24 @@ export async function proxyBackend(path: string) {
       cache: "no-store",
       headers: { accept: "application/json" },
     });
+    const headers = new Headers({
+      "content-type": response.headers.get("content-type") ?? "application/json",
+    });
+    for (const name of [
+      "cache-control",
+      "retry-after",
+      "x-ratelimit-limit",
+      "x-ratelimit-remaining",
+      "x-ratelimit-reset",
+    ]) {
+      const value = response.headers.get(name);
+      if (value !== null) {
+        headers.set(name, value);
+      }
+    }
     return new Response(await response.text(), {
       status: response.status,
-      headers: { "content-type": response.headers.get("content-type") ?? "application/json" },
+      headers,
     });
   } catch {
     return Response.json(

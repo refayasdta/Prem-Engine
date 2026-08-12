@@ -29,23 +29,6 @@ export default function ModelPage() {
           </aside>
         </header>
 
-        <section className={styles.section} aria-labelledby="model-explanation-title">
-          <header className={styles.sectionHeader}>
-            <div>
-              <h2 id="model-explanation-title">OptiMatch Forecast Model</h2>
-            </div>
-          </header>
-          <article className={styles.modelExplanation}>
-            <p>
-              OptiMatch uses completed results to estimate each team&apos;s attacking and defensive
-              strength. It combines those strengths with average league scoring and home advantage
-              to predict likely goals, then converts the possible scorelines into home-win, draw,
-              and away-win probabilities. The outcome with the highest probability becomes the
-              official forecast.
-            </p>
-          </article>
-        </section>
-
         <section className={styles.section} aria-labelledby="lifecycle-title">
           <header className={styles.sectionHeader}>
             <div>

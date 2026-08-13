@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 import httpx
 
 from prem_engine_api.config import Settings
-from prem_engine_api.providers.raw_storage import LocalRawResponseStore
+from prem_engine_api.providers.raw_storage import RawResponseStore
 
 
 class HistoricalFplDownloadBudgetError(RuntimeError):
@@ -33,7 +33,7 @@ class HistoricalFplClient:
         self,
         *,
         settings: Settings,
-        raw_store: LocalRawResponseStore,
+        raw_store: RawResponseStore,
         max_downloads: int,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:

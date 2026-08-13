@@ -117,6 +117,7 @@ async def lock_forecast(
     locked_at: datetime,
     presentation_duration_seconds: int = 60,
     actor: str = "forecast-worker",
+    enqueue_standings_job: bool = True,
 ) -> LockedForecast:
     """Write snapshot, lineup, forecast, and simulation in one transaction."""
 
@@ -303,20 +304,22 @@ async def lock_forecast(
     job.finished_at = locked_at
     job.lease_owner = None
     job.lease_expires_at = None
-    session.add_all(
-        (
-            LifecycleEvent(
-                aggregate_type="prediction_version",
-                aggregate_uuid=prediction_uuid,
-                event_type="prediction_locked",
-                actor=actor,
-                payload={
-                    "match_uuid": str(match.match_uuid),
-                    "version_number": version_number,
-                    "feature_snapshot_checksum": feature_checksum,
-                    "simulation_checksum": simulation_payload.checksum,
-                },
-            ),
+    session.add(
+        LifecycleEvent(
+            aggregate_type="prediction_version",
+            aggregate_uuid=prediction_uuid,
+            event_type="prediction_locked",
+            actor=actor,
+            payload={
+                "match_uuid": str(match.match_uuid),
+                "version_number": version_number,
+                "feature_snapshot_checksum": feature_checksum,
+                "simulation_checksum": simulation_payload.checksum,
+            },
+        )
+    )
+    if enqueue_standings_job:
+        session.add(
             JobRun(
                 idempotency_key=f"recalculate_simulated_standings:{prediction_uuid}",
                 job_type="recalculate_simulated_standings",
@@ -324,9 +327,8 @@ async def lock_forecast(
                 match_uuid=match.match_uuid,
                 due_at=locked_at + timedelta(seconds=presentation_duration_seconds),
                 attempt_count=0,
-            ),
+            )
         )
-    )
     await session.flush()
     return LockedForecast(
         prediction_version_uuid=prediction_uuid,

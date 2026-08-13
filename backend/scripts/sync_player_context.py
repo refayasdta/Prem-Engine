@@ -11,8 +11,9 @@ from prem_engine_api.config import get_settings
 from prem_engine_api.db.session import create_engine, create_session_factory
 from prem_engine_api.domain.models import CompetitionExternalReference, Season
 from prem_engine_api.ingestion.player_sync import sync_player_context
+from prem_engine_api.observability import configure_observability
 from prem_engine_api.providers.kickoffapi.client import KickoffApiClient
-from prem_engine_api.providers.raw_storage import LocalRawResponseStore
+from prem_engine_api.providers.raw_storage import create_raw_response_store
 from sqlalchemy import select
 
 
@@ -28,12 +29,14 @@ def parse_args() -> argparse.Namespace:
 
 async def run(args: argparse.Namespace) -> dict[str, object]:
     settings = get_settings()
+    configure_observability(settings, service="prem-engine-player-sync")
     if settings.kickoff_api_key is None:
         raise SystemExit("KICKOFF_API_KEY is not configured; no requests were made")
     if not 1 <= args.max_requests <= settings.kickoff_operational_request_limit:
         raise SystemExit("--max-requests must fit inside the operational daily allowance")
     engine = create_engine(settings)
     sessions = create_session_factory(engine)
+    raw_store = create_raw_response_store(settings)
     try:
         async with sessions() as session:
             competition_uuid = await session.scalar(
@@ -60,7 +63,7 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
         async with KickoffApiClient(
             settings=settings,
             session_factory=sessions,
-            raw_store=LocalRawResponseStore(settings.raw_data_root),
+            raw_store=raw_store,
         ) as client:
             outcome = await sync_player_context(
                 client=client,
@@ -74,11 +77,16 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
             )
         return asdict(outcome)
     finally:
+        raw_store.close()
         await engine.dispose()
 
 
 def main() -> None:
-    print(json.dumps(asyncio.run(run(parse_args())), indent=2, default=str))
+    print(
+        json.dumps(
+            asyncio.run(run(parse_args())), default=str, separators=(",", ":"), sort_keys=True
+        )
+    )
 
 
 if __name__ == "__main__":

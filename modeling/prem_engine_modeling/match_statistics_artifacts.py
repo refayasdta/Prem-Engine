@@ -72,8 +72,7 @@ class DetailedStatisticsPredictor:
         predictions: list[StatisticsPrediction] = []
         for row in matrix:
             means = {
-                target.name: float(value)
-                for target, value in zip(self.targets, row, strict=True)
+                target.name: float(value) for target, value in zip(self.targets, row, strict=True)
             }
             intervals = {
                 target.name: (
@@ -229,8 +228,7 @@ def load_statistics_artifact(path: Path) -> DetailedStatisticsPredictor:
     if not isinstance(columns, (tuple, list)) or not isinstance(pipelines, (tuple, list)):
         raise ValueError("statistics artifact has an invalid feature or pipeline contract")
     if not all(
-        isinstance(value, (tuple, list))
-        for value in (multipliers, quantiles, use_model, baselines)
+        isinstance(value, (tuple, list)) for value in (multipliers, quantiles, use_model, baselines)
     ):
         raise ValueError("statistics artifact has an incomplete inference contract")
     assert isinstance(multipliers, (tuple, list))

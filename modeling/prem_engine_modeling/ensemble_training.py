@@ -92,8 +92,7 @@ def blend_probabilities(
     if len(shapes) != 1 or next(iter(shapes))[1:] != (3,):
         raise ValueError("component probability matrices must share an N x 3 shape")
     weighted = (
-        weight * probabilities[name]
-        for name, weight in zip(COMPONENT_ORDER, weights, strict=True)
+        weight * probabilities[name] for name, weight in zip(COMPONENT_ORDER, weights, strict=True)
     )
     blended = sum(
         weighted,

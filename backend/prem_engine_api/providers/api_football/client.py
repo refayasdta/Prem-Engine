@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from prem_engine_api.config import Settings
 from prem_engine_api.providers.api_football.contracts import ApiFootballEnvelope
-from prem_engine_api.providers.raw_storage import LocalRawResponseStore
+from prem_engine_api.providers.raw_storage import RawResponseStore
 
 
 class MissingApiFootballCredentialError(RuntimeError):
@@ -63,7 +63,7 @@ class ApiFootballAuditClient:
         self,
         *,
         settings: Settings,
-        raw_store: LocalRawResponseStore,
+        raw_store: RawResponseStore,
         max_requests: int | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:

@@ -106,9 +106,7 @@ def _metrics(
         mean_prediction=float(prediction.mean()),
         mean_absolute_error=float(np.abs(errors).mean()),
         root_mean_squared_error=float(np.sqrt(np.square(errors).mean())),
-        mean_poisson_deviance=float(
-            mean_poisson_deviance(actual, np.clip(prediction, 1e-6, None))
-        ),
+        mean_poisson_deviance=float(mean_poisson_deviance(actual, np.clip(prediction, 1e-6, None))),
         bias=float(errors.mean()),
         interval_90_coverage=float(np.mean((actual >= lower) & (actual <= upper))),
     )
@@ -253,9 +251,7 @@ def train_detailed_statistics_models(
         else np.full(len(result.holdout_predictions), result.baseline_mean, dtype=np.float64)
         for result in targets
     ]
-    official = reconcile_statistic_means(
-        np.column_stack(official_columns), dataset.target_specs
-    )
+    official = reconcile_statistic_means(np.column_stack(official_columns), dataset.target_specs)
     return DetailedStatisticsTrainingResult(
         targets=targets,
         official_holdout_predictions=official,

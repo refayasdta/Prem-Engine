@@ -45,8 +45,7 @@ def _dataset() -> TabularDataset:
         match_uuids=tuple(f"match-{index}" for index in range(row_count)),
         seasons_by_row=seasons_by_row,
         kickoffs=tuple(
-            f"202{index // 18}-08-{index % 18 + 1:02d}T12:00:00Z"
-            for index in range(row_count)
+            f"202{index // 18}-08-{index % 18 + 1:02d}T12:00:00Z" for index in range(row_count)
         ),
         feature_columns=columns,
         checksum="e" * 64,
@@ -64,10 +63,7 @@ def test_weight_grid_and_blending_contract() -> None:
     weights = candidate_weights(0.1)
     assert len(weights) == 286
     assert all(sum(candidate) == pytest.approx(1.0) for candidate in weights)
-    matrices = {
-        name: np.asarray(((0.5, 0.3, 0.2),), dtype=np.float64)
-        for name in COMPONENT_ORDER
-    }
+    matrices = {name: np.asarray(((0.5, 0.3, 0.2),), dtype=np.float64) for name in COMPONENT_ORDER}
     assert np.allclose(blend_probabilities(matrices, (0.1, 0.2, 0.3, 0.4)), matrices["elo"])
     with pytest.raises(ValueError, match="sum to one"):
         blend_probabilities(matrices, (0.1, 0.2, 0.3, 0.3))

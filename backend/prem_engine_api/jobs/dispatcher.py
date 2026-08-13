@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import socket
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -31,6 +31,8 @@ from prem_engine_api.jobs.leases import (
     start_job,
 )
 from prem_engine_api.jobs.standings import recalculate_simulated_standings
+from prem_engine_api.observability import configure_observability
+from prem_engine_api.operations.snapshot import collect_operational_snapshot
 
 logger = structlog.get_logger()
 
@@ -158,6 +160,11 @@ async def dispatch_once(
                     await session.commit()
                 if status.value == "failed":
                     failed += 1
+                    logger.error(
+                        "forecast_job_terminal_failure",
+                        job_uuid=str(claimed_job.job_uuid),
+                        error_code=code,
+                    )
                 else:
                     retried += 1
             except JobLeaseError:
@@ -193,15 +200,41 @@ async def _job_cutoff(session: AsyncSession, match_uuid: object) -> datetime:
 
 async def _run() -> None:
     settings = get_settings()
+    configure_observability(settings, service="prem-engine-forecast-dispatcher")
     engine = create_engine(settings)
     worker_id = f"{socket.gethostname()}-{os.getpid()}"
     try:
+        session_factory = create_session_factory(engine)
         summary = await dispatch_once(
-            create_session_factory(engine),
+            session_factory,
             settings=settings,
             worker_id=worker_id,
         )
-        logger.info("forecast_dispatch_complete", **summary.__dict__)
+        logger.info("forecast_dispatch_complete", **asdict(summary))
+        async with session_factory() as session:
+            snapshot = await collect_operational_snapshot(
+                session,
+                now=datetime.now(UTC),
+                t24_grace_seconds=settings.forecast_monitoring_grace_seconds,
+            )
+        logger.info("operational_snapshot", **asdict(snapshot))
+        if snapshot.t24_forecasts_missing:
+            logger.error(
+                "t24_forecast_missing",
+                count=snapshot.t24_forecasts_missing,
+            )
+        warning_threshold = min(
+            settings.kickoff_quota_warning_threshold,
+            settings.kickoff_operational_request_limit,
+        )
+        if snapshot.provider_requests_today >= warning_threshold:
+            logger.warning(
+                "provider_quota_approaching",
+                provider="kickoffapi",
+                request_count=snapshot.provider_requests_today,
+                operational_limit=settings.kickoff_operational_request_limit,
+                hard_limit=settings.kickoff_daily_request_limit,
+            )
     finally:
         await engine.dispose()
 

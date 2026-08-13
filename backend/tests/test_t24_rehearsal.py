@@ -20,6 +20,7 @@ from prem_engine_api.domain.models import (
     StoredSimulation,
 )
 from prem_engine_api.operations.t24_rehearsal import T24RehearsalError, rehearse_t24_forecast
+from pydantic import SecretStr
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +30,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 def _settings(*, app_env: str = "test") -> Settings:
     return Settings(
         app_env=app_env,
+        database_ssl_required=app_env == "production",
+        api_origin_auth_enabled=app_env == "production",
+        api_origin_token=SecretStr("a" * 32) if app_env == "production" else None,
         goal_model_path=(
             PROJECT_ROOT / "artifacts/models/goals/goals-v1-156511483a94/model.joblib"
         ),

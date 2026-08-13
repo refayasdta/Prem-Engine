@@ -208,9 +208,7 @@ async def test_product_overviews_keep_timelines_separate(db_session: AsyncSessio
     )
     await db_session.flush()
 
-    standings = await build_standings_overview(
-        db_session, season_uuid=season.season_uuid, now=now
-    )
+    standings = await build_standings_overview(db_session, season_uuid=season.season_uuid, now=now)
     evaluation = await build_evaluation_overview(
         db_session, season_uuid=season.season_uuid, now=now
     )

@@ -19,6 +19,7 @@ from prem_engine_api.domain.models import (
     PlayerAvailabilityReport,
     PlayerMatchPerformance,
     PredictionVersion,
+    ProviderRequestBudget,
     Season,
     SeasonClub,
     SquadMembership,
@@ -32,6 +33,7 @@ from prem_engine_api.ingestion.player_sync import _next_cursor
 from prem_engine_api.jobs.dispatcher import dispatch_once
 from prem_engine_api.jobs.leases import complete_job
 from prem_engine_api.jobs.standings import recalculate_simulated_standings
+from prem_engine_api.operations.snapshot import collect_operational_snapshot
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -98,6 +100,47 @@ def test_player_context_cursor_is_tolerant_and_explicit() -> None:
     assert _next_cursor({"meta": {"next_cursor": 3}}) == "3"
     assert _next_cursor({"meta": {"nextCursor": None}}) is None
     assert _next_cursor([]) is None
+
+
+@pytest.mark.asyncio
+async def test_operational_snapshot_counts_missed_t24_and_quota_usage(
+    db_session: AsyncSession,
+) -> None:
+    _, _, _, match, now = await _season_and_match(db_session)
+    match.status = FixtureStatus.SCHEDULED
+    db_session.add_all(
+        (
+            JobRun(
+                idempotency_key="generate:snapshot-test",
+                job_type="generate_prediction",
+                status=JobStatus.PENDING,
+                match_uuid=match.match_uuid,
+                due_at=match.prediction_due_at,
+                attempt_count=0,
+            ),
+            ProviderRequestBudget(
+                provider="kickoffapi",
+                budget_date=now.date(),
+                request_count=80,
+                operational_limit=85,
+                hard_limit=100,
+            ),
+        )
+    )
+    await db_session.flush()
+
+    snapshot = await collect_operational_snapshot(
+        db_session,
+        now=now,
+        t24_grace_seconds=600,
+    )
+
+    assert snapshot.jobs_pending == 1
+    assert snapshot.jobs_leased == 0
+    assert snapshot.jobs_running == 0
+    assert snapshot.jobs_failed == 0
+    assert snapshot.t24_forecasts_missing == 1
+    assert snapshot.provider_requests_today == 80
 
 
 @pytest.mark.asyncio

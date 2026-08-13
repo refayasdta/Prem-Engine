@@ -1,0 +1,232 @@
+name: Container images
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "modeling/**"
+      - "artifacts/models/**"
+      - "infra/cloud-run/**"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - ".github/workflows/container-images.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "modeling/**"
+      - "artifacts/models/**"
+      - "infra/cloud-run/**"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - ".github/workflows/container-images.yml"
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "Protected GitHub environment containing release identity and registry settings"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      publish:
+        description: "Publish scanned SHA-tagged images to Artifact Registry"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [api, job]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build local image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/cloud-run/${{ matrix.component }}.Dockerfile
+          load: true
+          push: false
+          tags: prem-engine-${{ matrix.component }}:${{ github.sha }}
+      - name: Verify API health endpoint
+        if: matrix.component == 'api'
+        shell: bash
+        run: |
+          docker run --detach --name prem-engine-api-smoke --publish 18080:8080 prem-engine-api:${GITHUB_SHA}
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18080/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs prem-engine-api-smoke
+          exit 1
+      - name: Stop API smoke container
+        if: always() && matrix.component == 'api'
+        run: docker rm --force prem-engine-api-smoke || true
+      - name: Verify packaged model checksums
+        if: matrix.component == 'job'
+        shell: bash
+        run: |
+          test "$(docker run --rm --entrypoint sha256sum prem-engine-job:${GITHUB_SHA} /app/artifacts/models/goals/goals-v1-156511483a94/model.joblib | cut -d' ' -f1)" = "fe8a19c262b6a0d8aa02e01564f6c109eec2d16e237fa276e6a414967ecf0adc"
+          test "$(docker run --rm --entrypoint sha256sum prem-engine-job:${GITHUB_SHA} /app/artifacts/models/match-statistics/detailed-statistics-v1-42e73adec486/model.joblib | cut -d' ' -f1)" = "6859e2b0a6cd23382b795e68034b29548a6ac0a26fa9f08623cda5306cac4e12"
+      - name: Verify private forecast service health
+        if: matrix.component == 'job'
+        shell: bash
+        run: |
+          docker run --detach --name prem-engine-forecast-smoke --publish 18081:8080 \
+            --entrypoint uvicorn prem-engine-job:${GITHUB_SHA} \
+            prem_engine_api.forecast_task_app:app --host 0.0.0.0 --port 8080
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18081/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs prem-engine-forecast-smoke
+          exit 1
+      - name: Stop private forecast smoke container
+        if: always() && matrix.component == 'job'
+        run: docker rm --force prem-engine-forecast-smoke || true
+      - name: Scan image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: prem-engine-${{ matrix.component }}:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+      - name: Generate SPDX SBOM
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: prem-engine-${{ matrix.component }}:${{ github.sha }}
+          format: spdx-json
+          output: prem-engine-${{ matrix.component }}-${{ github.sha }}.spdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prem-engine-${{ matrix.component }}-sbom
+          path: prem-engine-${{ matrix.component }}-${{ github.sha }}.spdx.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    needs: build-scan
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [api, job]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate to Google Cloud with workload identity federation
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_RELEASE_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - name: Sign in to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.GCP_REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Build exact release candidate locally
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/cloud-run/${{ matrix.component }}.Dockerfile
+          load: true
+          push: false
+          tags: prem-engine-release-${{ matrix.component }}:${{ github.sha }}
+      - name: Verify exact API release candidate
+        if: matrix.component == 'api'
+        shell: bash
+        run: |
+          docker run --detach --name prem-engine-release-api-smoke --publish 18080:8080 \
+            prem-engine-release-api:${GITHUB_SHA}
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18080/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs prem-engine-release-api-smoke
+          exit 1
+      - name: Stop exact API release candidate
+        if: always() && matrix.component == 'api'
+        run: docker rm --force prem-engine-release-api-smoke || true
+      - name: Verify exact job release candidate
+        if: matrix.component == 'job'
+        shell: bash
+        run: |
+          test "$(docker run --rm --entrypoint sha256sum prem-engine-release-job:${GITHUB_SHA} /app/artifacts/models/goals/goals-v1-156511483a94/model.joblib | cut -d' ' -f1)" = "fe8a19c262b6a0d8aa02e01564f6c109eec2d16e237fa276e6a414967ecf0adc"
+          test "$(docker run --rm --entrypoint sha256sum prem-engine-release-job:${GITHUB_SHA} /app/artifacts/models/match-statistics/detailed-statistics-v1-42e73adec486/model.joblib | cut -d' ' -f1)" = "6859e2b0a6cd23382b795e68034b29548a6ac0a26fa9f08623cda5306cac4e12"
+          docker run --detach --name prem-engine-release-forecast-smoke --publish 18081:8080 \
+            --entrypoint uvicorn prem-engine-release-job:${GITHUB_SHA} \
+            prem_engine_api.forecast_task_app:app --host 0.0.0.0 --port 8080
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18081/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs prem-engine-release-forecast-smoke
+          exit 1
+      - name: Stop exact forecast release candidate
+        if: always() && matrix.component == 'job'
+        run: docker rm --force prem-engine-release-forecast-smoke || true
+      - name: Scan exact release candidate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: prem-engine-release-${{ matrix.component }}:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+      - name: Generate exact release SBOM
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: prem-engine-release-${{ matrix.component }}:${{ github.sha }}
+          format: spdx-json
+          output: prem-engine-release-${{ matrix.component }}-${{ github.sha }}.spdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prem-engine-${{ inputs.target_environment }}-${{ matrix.component }}-release-sbom
+          path: prem-engine-release-${{ matrix.component }}-${{ github.sha }}.spdx.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Push the verified local image
+        id: push
+        env:
+          RELEASE_IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REPOSITORY }}/${{ matrix.component }}:${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker tag "prem-engine-release-${{ matrix.component }}:${GITHUB_SHA}" "${RELEASE_IMAGE}"
+          push_output="$(docker push "${RELEASE_IMAGE}")"
+          printf '%s\n' "${push_output}"
+          digest="$(printf '%s\n' "${push_output}" | sed -nE 's/.*digest: (sha256:[0-9a-f]{64}).*/\1/p' | tail -1)"
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          echo "image=${RELEASE_IMAGE%:*}@${digest}" >> "${GITHUB_OUTPUT}"
+      - name: Record digest for Terraform release input
+        shell: bash
+        run: |
+          echo "### ${{ matrix.component }} image" >> "${GITHUB_STEP_SUMMARY}"
+          echo '\`${{ steps.push.outputs.image }}\`' >> "${GITHUB_STEP_SUMMARY}"

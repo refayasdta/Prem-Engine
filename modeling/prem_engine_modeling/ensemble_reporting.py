@@ -37,8 +37,7 @@ def human_ensemble_report(
     lines.append("")
     lines.append("COMPONENT CALIBRATION TEMPERATURES")
     lines.extend(
-        f"  {name:<10} {result.component_temperatures[name]:>7.4f}"
-        for name in COMPONENT_ORDER
+        f"  {name:<10} {result.component_temperatures[name]:>7.4f}" for name in COMPONENT_ORDER
     )
     lines.extend(
         [

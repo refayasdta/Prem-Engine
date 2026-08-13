@@ -53,33 +53,33 @@ def _source(kind: str, body: bytes) -> ArchivedCsv:
 
 def _season(start_indicator_available: bool = False) -> ArchivedSeason:
     merged_rows = [
-            {
-                "element": 1,
-                "fixture": 10,
-                "kickoff_time": "2020-09-12T12:30:00Z",
-                "minutes": 90,
-                "team": "Alpha",
-                "position": "GK",
-                "goals_scored": 0,
-                "assists": 0,
-                "was_home": "True",
-                "starts": "" if not start_indicator_available else "1",
-                "total_points": 6,
-            },
-            {
-                "element": 2,
-                "fixture": 10,
-                "kickoff_time": "2020-09-12T12:30:00Z",
-                "minutes": 90,
-                "team": "Beta",
-                "position": "FWD",
-                "goals_scored": 1,
-                "assists": 0,
-                "was_home": "False",
-                "starts": "" if not start_indicator_available else "1",
-                "total_points": 8,
-            },
-        ]
+        {
+            "element": 1,
+            "fixture": 10,
+            "kickoff_time": "2020-09-12T12:30:00Z",
+            "minutes": 90,
+            "team": "Alpha",
+            "position": "GK",
+            "goals_scored": 0,
+            "assists": 0,
+            "was_home": "True",
+            "starts": "" if not start_indicator_available else "1",
+            "total_points": 6,
+        },
+        {
+            "element": 2,
+            "fixture": 10,
+            "kickoff_time": "2020-09-12T12:30:00Z",
+            "minutes": 90,
+            "team": "Beta",
+            "position": "FWD",
+            "goals_scored": 1,
+            "assists": 0,
+            "was_home": "False",
+            "starts": "" if not start_indicator_available else "1",
+            "total_points": 8,
+        },
+    ]
     merged_rows.append(dict(merged_rows[0]))
     merged = _csv(merged_rows)
     players = _csv(

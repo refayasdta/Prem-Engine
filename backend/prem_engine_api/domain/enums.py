@@ -60,6 +60,15 @@ class JobStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class ForecastTaskState(StrEnum):
+    PENDING = "pending"
+    ENQUEUED = "enqueued"
+    PROCESSING = "processing"
+    SUCCEEDED = "succeeded"
+    STALE = "stale"
+    FAILED = "failed"
+
+
 class ProviderRequestStatus(StrEnum):
     RESERVED = "reserved"
     SUCCEEDED = "succeeded"

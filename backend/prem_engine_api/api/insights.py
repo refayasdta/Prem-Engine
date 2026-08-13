@@ -226,9 +226,7 @@ async def build_standings_overview(
         return _empty_standings(now=now)
 
     matches = list(
-        await session.scalars(
-            select(Match).where(Match.season_uuid == season.season_uuid)
-        )
+        await session.scalars(select(Match).where(Match.season_uuid == season.season_uuid))
     )
     club_ids = set(
         await session.scalars(
@@ -467,9 +465,7 @@ async def standings(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     season_uuid: Annotated[UUID | None, Query()] = None,
 ) -> StandingsOverviewResponse:
-    return await build_standings_overview(
-        session, season_uuid=season_uuid, now=datetime.now(UTC)
-    )
+    return await build_standings_overview(session, season_uuid=season_uuid, now=datetime.now(UTC))
 
 
 @router.get("/evaluation", response_model=EvaluationOverviewResponse)
@@ -477,6 +473,4 @@ async def evaluation(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     season_uuid: Annotated[UUID | None, Query()] = None,
 ) -> EvaluationOverviewResponse:
-    return await build_evaluation_overview(
-        session, season_uuid=season_uuid, now=datetime.now(UTC)
-    )
+    return await build_evaluation_overview(session, season_uuid=season_uuid, now=datetime.now(UTC))

@@ -31,6 +31,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from prem_engine_api.db.base import Base, TimestampMixin
 from prem_engine_api.domain.enums import (
     FixtureStatus,
+    ForecastTaskState,
     IdentityReviewState,
     IdentityReviewStatus,
     JobStatus,
@@ -757,6 +758,31 @@ class JobRun(Base, TimestampMixin):
     last_error_code: Mapped[str | None] = mapped_column(String(120))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ForecastTaskSchedule(Base, TimestampMixin):
+    __tablename__ = "forecast_task_schedules"
+    __table_args__ = (CheckConstraint("delivery_count >= 0", name="nonnegative_deliveries"),)
+
+    schedule_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    match_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("matches.match_uuid", ondelete="CASCADE"), index=True
+    )
+    schedule_revision_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("fixture_schedule_revisions.revision_uuid", ondelete="CASCADE"), unique=True
+    )
+    task_id: Mapped[str] = mapped_column(String(240), unique=True)
+    state: Mapped[ForecastTaskState] = mapped_column(
+        Enum(ForecastTaskState, name="forecast_task_state", values_callable=enum_values),
+        index=True,
+    )
+    schedule_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    cloud_task_name: Mapped[str | None] = mapped_column(String(500))
+    enqueued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_delivery_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivery_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_error_code: Mapped[str | None] = mapped_column(String(120))
 
 
 class LifecycleEvent(Base):

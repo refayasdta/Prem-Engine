@@ -104,9 +104,7 @@ def test_holdout_targets_cannot_change_fitting_or_raw_predictions() -> None:
 
 def test_artifact_round_trip_and_human_report(tmp_path: Path) -> None:
     dataset = _dataset()
-    result = train_detailed_statistics_models(
-        dataset, grid=CountModelGrid(alpha_values=(1.0,))
-    )
+    result = train_detailed_statistics_models(dataset, grid=CountModelGrid(alpha_values=(1.0,)))
     written = write_statistics_artifacts(
         result,
         dataset,

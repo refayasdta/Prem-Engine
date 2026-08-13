@@ -74,7 +74,7 @@ async def run_probe(args: argparse.Namespace) -> None:
         name: str,
         endpoint: str,
         endpoint_template: str,
-        params: dict[str, str | int] | None = None,
+        params: dict[str, str | int | float | bool] | None = None,
     ) -> Any | None:
         try:
             captured = await client.get(endpoint, params=params)

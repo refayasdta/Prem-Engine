@@ -127,9 +127,7 @@ async def export_player_context(
                 "opponent_club_uuid": str(opponent_uuid),
                 "player_uuid": str(performance.player_uuid),
                 "position": _normalized_position(performance.position),
-                "started": (
-                    int(performance.started) if performance.started is not None else ""
-                ),
+                "started": (int(performance.started) if performance.started is not None else ""),
                 "starting_status_source": performance.starting_status_source,
                 "minutes": performance.minutes if performance.minutes is not None else 0,
                 "rating": float(performance.rating) if performance.rating is not None else "",

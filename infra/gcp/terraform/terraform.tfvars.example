@@ -1,0 +1,35 @@
+project_id        = "replace-with-gcp-project-id"
+region            = "asia-southeast1"
+environment       = "staging"
+season_start_year = 2026
+
+# Only immutable digest references are accepted. For the one-time, targeted Artifact Registry
+# bootstrap, use command-line placeholder overrides exactly as documented in README.md; never save
+# placeholders here or use them in a full plan.
+api_image = "asia-southeast1-docker.pkg.dev/replace-with-gcp-project-id/prem-engine-staging-containers/api@sha256:replace-with-64-hex-characters"
+job_image = "asia-southeast1-docker.pkg.dev/replace-with-gcp-project-id/prem-engine-staging-containers/job@sha256:replace-with-64-hex-characters"
+
+# Secret identifiers only. Never place secret values in Terraform variables or state.
+database_api_secret_id               = "prem-engine-staging-database-api"
+database_worker_secret_id            = "prem-engine-staging-database-worker"
+database_migration_secret_id         = "prem-engine-staging-database-migration"
+kickoff_api_key_secret_id            = "prem-engine-staging-kickoff-api-key"
+origin_token_secret_id               = "prem-engine-staging-origin-token"
+origin_previous_token_secret_id      = null
+r2_access_key_id_secret_id           = "prem-engine-staging-r2-access-key-id"
+r2_secret_access_key_secret_id       = "prem-engine-staging-r2-secret-access-key"
+r2_account_id                        = "replace-with-r2-account-id"
+r2_bucket_name                       = "prem-engine-staging-raw"
+
+# Public snapshots use a separate bucket and write credential. Keep the gate false
+# until the bucket public-read policy and Vercel origin are acceptance-tested.
+public_snapshot_enabled                  = false
+r2_snapshot_bucket_name                 = null
+r2_snapshot_access_key_id_secret_id     = null
+r2_snapshot_secret_access_key_secret_id = null
+
+# Keep all gates closed through the first staging T-24 rehearsal.
+scheduler_paused         = true
+forecast_task_scheduling_enabled = false
+alerting_enabled         = false
+notification_channel_ids = []

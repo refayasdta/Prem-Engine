@@ -15,7 +15,7 @@ from prem_engine_api.providers.kickoffapi.contracts import validate_endpoint_pay
 from prem_engine_api.providers.raw_storage import LocalRawResponseStore
 
 OUTPUT = Path("data/contracts/kickoffapi/probe-summary.json")
-PROBES = (
+PROBES: tuple[tuple[str, str, dict[str, str | int | float | bool]], ...] = (
     ("v2_leagues", "/api/v2/leagues", {"country": "England", "limit": 1}),
     ("v2_teams", "/api/v2/teams", {"league": "en.1", "limit": 1}),
     ("v2_fixtures", "/api/v2/fixtures", {"league": "en.1", "season": 2026, "limit": 1}),

@@ -12,10 +12,19 @@ _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
+def get_database_engine() -> AsyncEngine:
+    """Return the process-wide lazy engine used by API requests and readiness checks."""
+
+    global _engine
+    if _engine is None:
+        _engine = create_engine()
+    return _engine
+
+
 def _factory() -> async_sessionmaker[AsyncSession]:
     global _engine, _session_factory
     if _session_factory is None:
-        _engine = create_engine()
+        _engine = get_database_engine()
         _session_factory = create_session_factory(_engine)
     return _session_factory
 

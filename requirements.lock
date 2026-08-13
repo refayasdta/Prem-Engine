@@ -23,6 +23,11 @@ certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
+    #   requests
+cffi==2.1.1
+    # via cryptography
+charset-normalizer==3.5.0
+    # via requests
 click==8.4.2
     # via
     #   pip-tools
@@ -34,10 +39,36 @@ colorama==0.4.6
     #   pytest
 coverage[toml]==7.15.4
     # via pytest-cov
+cryptography==50.0.0
+    # via google-auth
 fastapi==0.141.1
     # via prem-engine (pyproject.toml)
+google-api-core[grpc]==2.34.0
+    # via google-cloud-tasks
+google-auth==2.56.3
+    # via
+    #   google-api-core
+    #   google-cloud-tasks
+google-cloud-tasks==2.24.0
+    # via prem-engine (pyproject.toml)
+googleapis-common-protos[grpc]==1.75.1
+    # via
+    #   google-api-core
+    #   grpc-google-iam-v1
+    #   grpcio-status
 greenlet==3.5.4
     # via sqlalchemy
+grpc-google-iam-v1==0.14.5
+    # via google-cloud-tasks
+grpcio==1.83.0
+    # via
+    #   google-api-core
+    #   google-cloud-tasks
+    #   googleapis-common-protos
+    #   grpc-google-iam-v1
+    #   grpcio-status
+grpcio-status==1.83.0
+    # via google-api-core
 h11==0.16.0
     # via
     #   httpcore
@@ -52,6 +83,7 @@ idna==3.18
     # via
     #   anyio
     #   httpx
+    #   requests
 iniconfig==2.3.0
     # via pytest
 joblib==1.5.3
@@ -98,6 +130,24 @@ pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
+proto-plus==1.28.3
+    # via
+    #   google-api-core
+    #   google-cloud-tasks
+protobuf==7.35.1
+    # via
+    #   google-api-core
+    #   google-cloud-tasks
+    #   googleapis-common-protos
+    #   grpc-google-iam-v1
+    #   grpcio-status
+    #   proto-plus
+pyasn1==0.6.4
+    # via pyasn1-modules
+pyasn1-modules==0.4.2
+    # via google-auth
+pycparser==3.0
+    # via cffi
 pydantic==2.13.4
     # via
     #   fastapi
@@ -131,6 +181,8 @@ pytz==2026.3.post1
     # via pandas
 pyyaml==6.0.3
     # via uvicorn
+requests==2.34.2
+    # via google-api-core
 ruff==0.16.1
     # via prem-engine (pyproject.toml)
 scikit-learn==1.9.0
@@ -159,6 +211,7 @@ typing-extensions==4.16.0
     #   alembic
     #   anyio
     #   fastapi
+    #   grpcio
     #   mypy
     #   pydantic
     #   pydantic-core
@@ -173,6 +226,8 @@ typing-inspection==0.4.2
     #   pydantic-settings
 tzdata==2026.3
     # via pandas
+urllib3==2.7.0
+    # via requests
 uvicorn[standard]==0.52.1
     # via prem-engine (pyproject.toml)
 watchfiles==1.2.0

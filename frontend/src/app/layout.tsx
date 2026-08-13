@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { Boldonse, Jersey_10, Spline_Sans } from "next/font/google";
 import type { ReactNode } from "react";
+import { resolveSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const bodyFont = Spline_Sans({
@@ -24,18 +24,15 @@ const scoreFont = Boldonse({
 const description =
   "Premier League probabilities, expected lineups, and one stored match simulation locked 24 hours before kickoff.";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
-  const forwardedHost = requestHeaders.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const host = forwardedHost || requestHeaders.get("host") || "localhost:3000";
-  const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const protocol = forwardedProtocol || (host.startsWith("localhost") ? "http" : "https");
-  const origin = `${protocol}://${host}`;
+export function generateMetadata(): Metadata {
+  const siteUrl = resolveSiteUrl();
+  const origin = siteUrl.origin;
   const title = "Prem Engine";
   const imageUrl = `${origin}/og.png`;
 
   return {
     metadataBase: new URL(origin),
+    alternates: { canonical: siteUrl },
     title,
     description,
     applicationName: "Prem Engine",

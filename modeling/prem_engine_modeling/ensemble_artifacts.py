@@ -61,15 +61,11 @@ class EnsemblePredictor:
         components: dict[ComponentName, NDArray[np.float64]] = {
             "elo": np.asarray(features[:, positions["elo"]], dtype=np.float64),
             "goals": np.asarray(features[:, positions["goal"]], dtype=np.float64),
-            "tabular": _ordered_probabilities(
-                self.tabular_pipeline, features[:, :base_count]
-            ),
+            "tabular": _ordered_probabilities(self.tabular_pipeline, features[:, :base_count]),
             "player": _ordered_probabilities(self.player_pipeline, features),
         }
         components = {
-            name: temperature_scale_probabilities(
-                values, self.component_temperatures[name]
-            )
+            name: temperature_scale_probabilities(values, self.component_temperatures[name])
             for name, values in components.items()
         }
         return temperature_scale_probabilities(

@@ -47,6 +47,21 @@ artifacts/models/match-statistics/detailed-statistics-v1-42e73adec486/*
 !artifacts/models/match-statistics/detailed-statistics-v1-42e73adec486/model.joblib
 *.pkl
 
+# Deployment state, credentials, and backups
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+backend.hcl
+*.backend.hcl
+gha-creds-*.json
+backups/
+*.dump
+*.dump.sha256
+*.dump.metadata.json
+
 # Editors and operating systems
 .idea/
 .vscode/

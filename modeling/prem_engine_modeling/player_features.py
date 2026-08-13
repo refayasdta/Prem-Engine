@@ -162,9 +162,7 @@ def _profile(
         if item.started is None:
             start_values.append((minutes_signal, weight * 0.6))
         else:
-            start_values.append(
-                (0.7 * float(item.started) + 0.3 * minutes_signal, weight)
-            )
+            start_values.append((0.7 * float(item.started) + 0.3 * minutes_signal, weight))
     starting_probability = _weighted_average(start_values, 0.0)
     rating_values = [
         (item.rating, weight)

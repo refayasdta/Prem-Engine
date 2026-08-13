@@ -1,5 +1,8 @@
 # Prem Engine deployment runbook
 
+Operator commands, infrastructure-source locations, release ordering, rollback, and recurring
+maintenance are documented in [DEPLOYMENT_AND_MAINTENANCE.md](./DEPLOYMENT_AND_MAINTENANCE.md).
+
 This is the complete Phase 16C staging and production checklist for Prem Engine. Follow it in order.
 Do not treat a successful container build as a successful deployment: production is ready only after
 the data pipeline, T-24 job, stored simulation, public API, monitoring, and rollback path have all
@@ -18,11 +21,11 @@ The following work is already implemented and locally verified:
 - a conservative KickoffAPI ceiling of 85 requests per UTC day and 25 requests per rolling minute;
 - checksum-pinned goals and detailed-statistics artifacts copied into the forecast-job image;
 - a real artifact-backed T-24 rollback rehearsal; and
-- 128 backend/modeling tests at 84.12% coverage, strict Python typing, and a passing frontend
-  production build.
+- the backend/modeling and frontend suites, strict Python typing, and production build checks
+  required by CI.
 
-The local development database has one Alembic head and is currently at revision
-`d72d120a14aa`.
+The repository has one Alembic head: `f5c1b4d8a9e2`. Verify every deployed database independently;
+the repository head does not prove that a remote migration ran.
 
 ## 2. Production stop conditions
 
@@ -208,7 +211,7 @@ working tree.
 - [ ] Confirm `.env`, raw provider responses, service-account files, private keys, and database dumps
       are not tracked.
 - [ ] Run a secret scan across the current tree and Git history.
-- [ ] Commit the complete hardening change on `security/pre-deployment-hardening`.
+- [ ] Commit the complete hardening change on `codex/phase-16c-deployment-operations`.
 - [ ] Push the branch and open a pull request.
 - [ ] Require the Python and frontend CI jobs to pass.
 - [ ] Review dependency and container vulnerability results.
@@ -244,7 +247,9 @@ Create staging first with the same security boundaries and commands intended for
 ### 6.1 PostgreSQL staging
 
 - [ ] Create the staging database.
-- [ ] Create separate migration, API, and job roles.
+- [ ] Create separate migration-owner, API, job, backup, and isolated-restore roles.
+- [ ] Run `Grant-PostgresRuntimeRoles.ps1` against the direct migration-owner URL and confirm it
+      rejects elevated or unexpectedly inherited runtime roles.
 - [ ] Restrict network access where supported.
 - [ ] Store connection strings in the relevant platform secret stores.
 - [ ] Take an initial backup.
@@ -256,7 +261,7 @@ alembic upgrade head
 alembic current
 ```
 
-- [ ] Confirm `alembic current` reports `d72d120a14aa` or the newer reviewed head present at release
+- [ ] Confirm `alembic current` reports `f5c1b4d8a9e2` or the newer reviewed head present at release
       time.
 - [ ] Test a backup restoration into a disposable database.
 
@@ -279,7 +284,7 @@ Build both Dockerfiles from the repository root:
 - `infra/cloud-run/job.Dockerfile`
 
 - [ ] Build in CI or another environment with Docker available.
-- [ ] Scan both images for known vulnerabilities.
+- [ ] Scan the exact local image objects that will be pushed, not an earlier rebuild.
 - [ ] Run as the non-root user already declared in each Dockerfile.
 - [ ] Verify the API container starts on the injected `PORT`.
 - [ ] Verify the job image contains both model files.
@@ -287,7 +292,8 @@ Build both Dockerfiles from the repository root:
   - goals: `fe8a19c262b6a0d8aa02e01564f6c109eec2d16e237fa276e6a414967ecf0adc`;
   - detailed statistics:
     `6859e2b0a6cd23382b795e68034b29548a6ac0a26fa9f08623cda5306cac4e12`.
-- [ ] Push immutable images and record their registry digests.
+- [ ] Generate SPDX SBOMs for those exact images, push them without rebuilding, and record their
+      registry digests.
 
 Promote the same tested image digest to production. Do not rebuild from an unpinned working tree.
 
@@ -314,24 +320,28 @@ Test:
 - [ ] authenticated frontend-origin calls succeed.
 - [ ] API logs contain no database URL or secret.
 
-### 6.5 Cloud Run jobs staging
+### 6.5 Cloud Run forecast service and jobs staging
 
-Create three job definitions, preferably from the same immutable job image with command overrides.
+Create the private forecast service and three scheduled job definitions from the immutable job image.
 
-#### Forecast dispatcher
+#### Private forecast task handler
 
 ```text
-python -m prem_engine_api.jobs.dispatcher
+uvicorn prem_engine_api.forecast_task_app:app --host 0.0.0.0 --port 8080
 ```
 
 Environment/secrets:
 
-- job-role `DATABASE_URL`;
+- job-role `DATABASE_URL` and a dedicated runtime service account;
 - both artifact paths and checksums;
-- dispatcher batch, lease, attempt, and retry settings;
-- `SIMULATION_PRESENTATION_SECONDS=60`.
+- task queue name, job lease, and bounded attempt settings;
+- `SIMULATION_PRESENTATION_SECONDS=60`;
+- `PUBLIC_SNAPSHOT_STORE=r2`, the dedicated public snapshot bucket, and its write-only credentials.
 
-This job does not call KickoffAPI during normal forecast generation.
+Do not grant `allUsers`. Grant `roles/run.invoker` only to the dedicated Cloud Tasks OIDC service
+account. Cloud Run IAM/OIDC authenticates the caller; task headers bind the request to the persisted
+ledger but are not caller identity. This service does not call KickoffAPI.
+It receives no private raw-response bucket credential.
 
 #### Fixture reconciliation
 
@@ -344,7 +354,9 @@ Environment/secrets:
 - job-role `DATABASE_URL`;
 - `KICKOFF_API_KEY`;
 - daily/minute quota settings;
-- R2 credentials and production-selected raw storage.
+- private raw-response R2 credentials and production-selected raw storage;
+- separate public-snapshot R2 bucket and write credentials;
+- Cloud Tasks project, location, queue, target URL, and OIDC service-account email.
 
 #### Player-context synchronization
 
@@ -353,6 +365,16 @@ python backend/scripts/sync_player_context.py --league en.1 --season 2026 --max-
 ```
 
 Use the same provider, database, and R2 boundaries as fixture reconciliation.
+
+#### Maintenance and task reconciliation
+
+```text
+python backend/scripts/run_maintenance.py
+```
+
+Grant the database worker role, queue-enqueuer permission, and public-snapshot-only R2 writer, but
+no provider or private raw-response credentials. This job retries pending task creation, refreshes
+derived snapshots, and emits quota and missed-T-24 operational signals without provider requests.
 
 For every job:
 
@@ -372,9 +394,9 @@ Suggested initial schedule:
 
 | Scheduler | UTC cron | Provider calls |
 | --- | --- | ---: |
-| Forecast dispatcher | `* * * * *` | 0 |
 | Fixture reconciliation | `0 */4 * * *` | normally 8, hard command cap 10 |
 | Player context | `15 2 * * *` | hard cap 16 |
+| Maintenance/task reconciliation | `30 3 * * *` | 0 |
 
 At the command caps, fixture reconciliation uses at most 60 requests across six daily runs and the
 player cycle uses at most 16, for 76 planned requests. The database operational ceiling stops all
@@ -384,6 +406,8 @@ work at 85 and retains the provider hard-limit reserve from 85 to 100.
 - [ ] Do not expose a public unauthenticated job-trigger endpoint.
 - [ ] Configure retry limits so scheduler retries cannot create an unbounded storm.
 - [ ] Confirm database idempotency prevents duplicate forecast effects.
+- [ ] Confirm the queue permits one dispatch per second and one concurrent delivery.
+- [ ] Confirm each task uses OIDC and the forecast service rejects unauthenticated requests.
 - [ ] Alert on a failed or missing scheduled execution.
 - [ ] Recalculate this budget before adding endpoints, pages, or schedules.
 - [ ] Check the provider ledger daily during the first production week.
@@ -398,6 +422,8 @@ Configure server-only environment variables:
 ```dotenv
 PREM_ENGINE_API_BASE_URL=<staging Cloud Run API URL>
 PREM_ENGINE_SITE_URL=<staging HTTPS URL>
+PREM_ENGINE_SNAPSHOT_BASE_URL=<staging public snapshot HTTPS origin>
+PREM_ENGINE_SNAPSHOT_STALE_IF_ERROR_SECONDS=21600
 PREM_ENGINE_RATE_LIMIT_ENABLED=true
 PREM_ENGINE_RATE_LIMIT_REQUESTS=60
 PREM_ENGINE_RATE_LIMIT_WINDOW_SECONDS=60
@@ -429,7 +455,8 @@ Do this before the T-24 rehearsal.
    `prediction_due_at = kickoff - 24 hours`.
 7. Confirm no existing active prediction blocks the rehearsal fixture.
 8. Confirm provider raw objects exist in R2 with matching database checksums.
-9. Confirm the provider daily ledger reflects exactly the requests made.
+9. Confirm sanitized public snapshot payloads and manifests exist only in the separate public bucket.
+10. Confirm the provider daily ledger reflects exactly the requests made.
 
 Useful manual commands:
 
@@ -485,8 +512,17 @@ This rehearsal must exercise the deployed scheduler and job, not the local CLI.
 6. Confirm the public lifecycle moves `generating` to `live` to `complete`.
 7. Confirm future events and the final score remain hidden until their presentation time.
 8. Confirm every viewer sees the same checksum and event stream.
-9. Confirm the standings recalculation job runs after 60 seconds and writes a snapshot.
-10. Confirm a duplicate invocation reuses or ignores existing work without duplicating a prediction.
+9. Confirm the reveal-finalization task reaches the actual 60-second presentation boundary and
+   publishes the complete forecast and simulated standings snapshots without a one-minute retry
+   delay.
+10. Confirm the revision-scoped watchdog runs at T-24 plus the configured grace period. A current
+    fixture without a locked forecast must emit `t24_forecast_missing`; a healthy or stale revision
+    must not emit a false alert.
+11. Confirm manifest length/SHA-256 integrity and that no unreleased event was ever public.
+12. Confirm a duplicate invocation reuses or ignores existing work without duplicating a prediction.
+13. Dispatch `production-acceptance.yml` with the snapshot origin, `forecast/<match-uuid>`, and
+    expected lifecycle `complete`; retain its checksum, length, freshness, and private-endpoint
+    boundary evidence.
 
 ### 8.4 Failure drills
 
@@ -502,7 +538,9 @@ Run these only in staging:
 - [ ] Test provider minute exhaustion; no request above the local ceiling should leave the service.
 - [ ] Test daily budget exhaustion; optional work must stop before the hard provider limit.
 - [ ] Reschedule a staged fixture and confirm old jobs/predictions are voided or replaced correctly.
-- [ ] Confirm a missing forecast after T-24 plus the chosen grace period triggers an alert.
+- [ ] Deliver the obsolete revision task and confirm it returns success as stale without generating.
+- [ ] Confirm the event-time watchdog triggers a missing-forecast alert at T-24 plus the chosen
+      grace period without requiring a frequent database-polling schedule.
 
 ## 9. Monitoring and alerting
 
@@ -511,10 +549,12 @@ Create dashboards or queries before production. At minimum, monitor:
 - Cloud Scheduler executions and failures;
 - Cloud Run API request count, latency, 4xx, 429, and 5xx rates;
 - Cloud Run job starts, successes, failures, duration, and retries;
+- Cloud Tasks creation failures, stale deliveries, retry attempts, and private handler 5xx responses;
 - pending, leased, running, retried, failed, and cancelled job counts;
 - forecasts missing after T-24 plus a small grace period;
 - provider daily request count and reported rolling-minute remaining value;
 - R2 write failures and raw-fetch rows whose objects cannot be found;
+- public snapshot publication failures, manifest age, and checksum/length mismatches;
 - PostgreSQL connectivity, connection use, storage, and backup age;
 - identity-review backlog;
 - upcoming fixtures without adequate squad/goalkeeper coverage; and
@@ -530,6 +570,7 @@ Required alerts:
 - [ ] repeated API 5xx responses;
 - [ ] database readiness failure;
 - [ ] R2 persistence failure;
+- [ ] public snapshot publication failure from either the forecast service or a scheduled job;
 - [ ] backup older than the chosen recovery policy; and
 - [ ] unexpected increase in pending identity cases.
 
@@ -597,7 +638,8 @@ Proceed only when staging acceptance and failure drills pass.
 9. **Enable schedulers one at a time**
    - Fixture reconciliation first; inspect one success.
    - Player context next; inspect request count and R2 objects.
-   - Forecast dispatcher last; inspect leases and confirm it does not create premature jobs.
+   - Maintenance last; inspect task reconciliation and confirm it makes no provider calls.
+   - Enable `forecast_task_scheduling_enabled` only after private-handler and queue IAM checks pass.
 
 10. **Enable alerts and watch the release**
     - Keep an operator available through at least one fixture sync, player sync, and real T-24 cycle.
@@ -618,7 +660,7 @@ Production is accepted only when every item below is true.
 - [ ] Fixture sync updates schedule/status/result revisions.
 - [ ] Player sync populates adequate upcoming squad context.
 - [ ] Provider request counts remain under both local limits.
-- [ ] Forecast dispatcher runs every minute without duplicate predictions.
+- [ ] Exactly one revision-scoped task is scheduled within the 30-day window without duplicate predictions.
 - [ ] A real fixture receives its locked prediction at T-24.
 - [ ] The simulation reveals consistently for all viewers and withholds future state.
 - [ ] Simulated standings recalculate after presentation completion.

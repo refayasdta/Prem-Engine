@@ -45,6 +45,7 @@ async def test_client_accounts_for_and_captures_each_response(
         kickoff_api_key=SecretStr("test-secret"),
         kickoff_daily_request_limit=100,
         kickoff_operational_request_limit=85,
+        kickoff_quota_warning_threshold=1,
         raw_data_root=tmp_path,
     )
     async with httpx.AsyncClient(

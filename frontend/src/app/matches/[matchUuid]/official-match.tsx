@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ClubCrest } from "@/components/club-crest";
+import { secondsUntil } from "@/lib/countdown";
 import type {
   ForecastEvent,
   ForecastLineup,
@@ -81,6 +82,14 @@ function Lineup({ lineup, side }: { lineup: ForecastLineup; side: TeamSide }) {
 }
 
 function WaitingState({ data }: { data: MatchForecast }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (data.lifecycle_state !== "countdown") return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [data.lifecycle_state, data.prediction_due_at]);
+
   const messages = {
     countdown: "The backend will generate and lock this match automatically at T-24.",
     generating: "The T-24 job is generating and locking the forecast now.",
@@ -91,15 +100,19 @@ function WaitingState({ data }: { data: MatchForecast }) {
     complete: "The stored presentation is complete.",
   } as const;
   const title = data.lifecycle_state === "countdown"
-    ? countdown(data.seconds_until_generation)
+    ? countdown(secondsUntil(data.prediction_due_at, now))
     : data.lifecycle_state === "generating"
       ? "Locking forecast…"
       : "No active simulation";
 
   return (
-    <section className={styles.waiting} role="status">
+    <section
+      className={styles.waiting}
+      role="status"
+      aria-live={data.lifecycle_state === "countdown" ? "off" : "polite"}
+    >
       <p className={styles.eyebrow}>{data.lifecycle_state}</p>
-      <h2>{title}</h2>
+      <h2 role={data.lifecycle_state === "countdown" ? "timer" : undefined}>{title}</h2>
       <p>{messages[data.lifecycle_state]}</p>
       <small>Scheduled generation: {new Date(data.prediction_due_at).toLocaleString("en-GB")}</small>
     </section>

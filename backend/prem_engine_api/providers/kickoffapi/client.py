@@ -9,17 +9,19 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
+import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from prem_engine_api.config import Settings
 from prem_engine_api.domain.enums import ProviderRequestStatus
-from prem_engine_api.domain.models import ProviderRequest, RawFetch
+from prem_engine_api.domain.models import ProviderRequest, ProviderRequestBudget, RawFetch
 from prem_engine_api.domain.request_budget import reserve_request_slot
-from prem_engine_api.providers.raw_storage import LocalRawResponseStore
+from prem_engine_api.providers.raw_storage import RawResponseStorageError, RawResponseStore
 
 PROVIDER = "kickoffapi"
 SCHEMA_VERSION = "kickoffapi-v2-2026-08"
+logger = structlog.get_logger()
 
 
 class MissingProviderCredentialError(RuntimeError):
@@ -70,7 +72,7 @@ class KickoffApiClient:
         *,
         settings: Settings,
         session_factory: async_sessionmaker[AsyncSession],
-        raw_store: LocalRawResponseStore,
+        raw_store: RawResponseStore,
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._settings = settings
@@ -102,6 +104,7 @@ class KickoffApiClient:
             raise MissingProviderCredentialError("KICKOFF_API_KEY is not configured")
         safe_params = dict(params or {})
         provider_request_uuid = uuid4()
+        quota_warning_count: int | None = None
         async with self._session_factory() as session, session.begin():
             latest_request = await session.scalar(
                 select(ProviderRequest)
@@ -120,13 +123,20 @@ class KickoffApiClient:
                 raise ProviderRateWindowExhaustedError(
                     "KickoffAPI reported no remaining requests in the current rate window"
                 )
-            await reserve_request_slot(
+            budget_uuid = await reserve_request_slot(
                 session,
                 provider=PROVIDER,
                 budget_date=datetime.now(UTC).date(),
                 operational_limit=self._settings.kickoff_operational_request_limit,
                 hard_limit=self._settings.kickoff_daily_request_limit,
             )
+            reserved_count = await session.scalar(
+                select(ProviderRequestBudget.request_count).where(
+                    ProviderRequestBudget.budget_uuid == budget_uuid
+                )
+            )
+            if reserved_count == self._settings.kickoff_quota_warning_threshold:
+                quota_warning_count = reserved_count
             recent_request_count = int(
                 await session.scalar(
                     select(func.count())
@@ -152,6 +162,15 @@ class KickoffApiClient:
                 )
             )
 
+        if quota_warning_count is not None:
+            logger.warning(
+                "provider_quota_approaching",
+                provider=PROVIDER,
+                request_count=quota_warning_count,
+                operational_limit=self._settings.kickoff_operational_request_limit,
+                hard_limit=self._settings.kickoff_daily_request_limit,
+            )
+
         try:
             response = await self._http_client.get(
                 endpoint,
@@ -166,9 +185,19 @@ class KickoffApiClient:
             raise
 
         fetched_at = datetime.now(UTC)
-        stored = self._raw_store.store(
-            provider=PROVIDER, body=response.content, fetched_at=fetched_at
-        )
+        try:
+            stored = self._raw_store.store(
+                provider=PROVIDER, body=response.content, fetched_at=fetched_at
+            )
+        except (OSError, RawResponseStorageError) as error:
+            await self._mark_request_failed(provider_request_uuid, "raw_storage_failed")
+            logger.exception(
+                "raw_response_storage_failed",
+                provider=PROVIDER,
+                provider_request_uuid=str(provider_request_uuid),
+                error_type=type(error).__name__,
+            )
+            raise
         raw_fetch_uuid = uuid4()
         successful = 200 <= response.status_code < 300
         async with self._session_factory() as session, session.begin():

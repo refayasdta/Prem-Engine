@@ -34,7 +34,7 @@ from prem_engine_api.historical.mapping import (
     resolve_club,
     seed_reviewed_aliases,
 )
-from prem_engine_api.providers.raw_storage import LocalRawResponseStore
+from prem_engine_api.providers.raw_storage import RawResponseStore
 
 FOOTBALL_DATA_PROVIDER = "football-data.co.uk"
 PREMIER_LEAGUE_CODE = "E0"
@@ -288,7 +288,7 @@ async def import_historical_csv(
     retrieved_at: datetime,
     season_start_year: int,
     alias_registry_path: Path,
-    raw_store: LocalRawResponseStore,
+    raw_store: RawResponseStore,
 ) -> HistoricalImportSummary:
     """Archive and atomically normalize one season; exact re-imports are no-ops."""
 

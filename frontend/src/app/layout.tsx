@@ -1,24 +1,37 @@
 import type { Metadata } from "next";
-import { Boldonse, Jersey_10, Spline_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { resolveSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
-const bodyFont = Spline_Sans({
+const bodyFont = localFont({
+  src: "./fonts/spline-sans-latin.woff2",
   variable: "--font-body",
-  subsets: ["latin"],
+  display: "swap",
+  weight: "300 700",
+  style: "normal",
+  fallback: ["Arial"],
+  adjustFontFallback: "Arial",
 });
 
-const displayFont = Jersey_10({
+const displayFont = localFont({
+  src: "./fonts/jersey-10-latin.woff2",
   variable: "--font-display",
+  display: "swap",
   weight: "400",
-  subsets: ["latin"],
+  style: "normal",
+  fallback: ["Arial"],
+  adjustFontFallback: "Arial",
 });
 
-const scoreFont = Boldonse({
+const scoreFont = localFont({
+  src: "./fonts/boldonse-latin.woff2",
   variable: "--font-score",
+  display: "swap",
   weight: "400",
-  subsets: ["latin"],
+  style: "normal",
+  fallback: ["Arial"],
+  adjustFontFallback: "Arial",
 });
 
 const description =

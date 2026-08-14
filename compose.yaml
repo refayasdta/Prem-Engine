@@ -1,19 +1,162 @@
+x-backend-environment: &backend-environment
+  APP_ENV: local
+  DEPLOYMENT_MODE: local
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: postgresql+asyncpg://prem_engine:${POSTGRES_PASSWORD:-prem_engine_local}@postgres:5432/prem_engine
+  DATABASE_SSL_REQUIRED: "false"
+  KICKOFF_API_KEY: ${KICKOFF_API_KEY:-}
+  KICKOFF_API_BASE_URL: ${KICKOFF_API_BASE_URL:-https://api.kickoffapi.com}
+  KICKOFF_DAILY_REQUEST_LIMIT: ${KICKOFF_DAILY_REQUEST_LIMIT:-100}
+  KICKOFF_OPERATIONAL_REQUEST_LIMIT: ${KICKOFF_OPERATIONAL_REQUEST_LIMIT:-85}
+  KICKOFF_OPERATIONAL_MINUTE_LIMIT: ${KICKOFF_OPERATIONAL_MINUTE_LIMIT:-25}
+  RAW_RESPONSE_STORE: local
+  RAW_DATA_ROOT: /app/data/raw
+  PUBLIC_SNAPSHOT_STORE: disabled
+  FORECAST_TASK_SCHEDULING_ENABLED: "false"
+  GOAL_MODEL_PATH: /app/artifacts/models/goals/goals-v1-156511483a94/model.joblib
+  GOAL_MODEL_SHA256: fe8a19c262b6a0d8aa02e01564f6c109eec2d16e237fa276e6a414967ecf0adc
+  STATISTICS_MODEL_PATH: /app/artifacts/models/match-statistics/detailed-statistics-v1-42e73adec486/model.joblib
+  STATISTICS_MODEL_SHA256: 6859e2b0a6cd23382b795e68034b29548a6ac0a26fa9f08623cda5306cac4e12
+
+x-backend-service: &backend-service
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  environment:
+    <<: *backend-environment
+  networks:
+    - application
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: prem_engine
       POSTGRES_USER: prem_engine
-      POSTGRES_PASSWORD: prem_engine
-    ports:
-      - "${POSTGRES_PORT:-55432}:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prem_engine_local}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U prem_engine -d prem_engine"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+    stop_grace_period: 30s
     volumes:
       - prem_engine_postgres:/var/lib/postgresql/data
+    networks:
+      - application
+
+  migrate:
+    <<: *backend-service
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      <<: *backend-environment
+      RUNTIME_ROLE: migration
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  initialize:
+    <<: *backend-service
+    command: ["python", "-m", "prem_engine_api.local_init"]
+    environment:
+      <<: *backend-environment
+      RUNTIME_ROLE: initializer
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    <<: *backend-service
+    environment:
+      <<: *backend-environment
+      RUNTIME_ROLE: api
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    init: true
+    volumes:
+      - prem_engine_local_models:/app/artifacts/local:ro
+
+  worker:
+    <<: *backend-service
+    command: ["python", "-m", "prem_engine_api.local_worker"]
+    environment:
+      <<: *backend-environment
+      RUNTIME_ROLE: worker
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from pathlib import Path; raise SystemExit(0 if Path('/tmp/prem-engine-worker-ready').is_file() else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    init: true
+    volumes:
+      - prem_engine_raw:/app/data/raw
+      - prem_engine_local_models:/app/artifacts/local
+    networks:
+      - application
+      - egress
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      PREM_ENGINE_API_BASE_URL: http://api:8000
+      PREM_ENGINE_RATE_LIMIT_ENABLED: "true"
+      PREM_ENGINE_RATE_LIMIT_REQUESTS: ${PREM_ENGINE_RATE_LIMIT_REQUESTS:-60}
+      PREM_ENGINE_RATE_LIMIT_WINDOW_SECONDS: ${PREM_ENGINE_RATE_LIMIT_WINDOW_SECONDS:-60}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    ports:
+      - "${PREM_ENGINE_HOST_BIND:-0.0.0.0}:${PREM_ENGINE_FRONTEND_PORT:-3000}:3000"
+    networks:
+      - application
+      - edge
+    restart: unless-stopped
+    init: true
 
 volumes:
   prem_engine_postgres:
+  prem_engine_raw:
+  prem_engine_local_models:
+
+networks:
+  application:
+    internal: true
+  edge:
+  egress:

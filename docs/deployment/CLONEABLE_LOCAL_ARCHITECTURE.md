@@ -46,6 +46,37 @@ The first local edition will not provide:
 - retrospective simulation after the permitted play window; or
 - automatic synchronization of local changes back to the repository or another user.
 
+## Resolved implementation decisions
+
+The following product decisions are settled for the transition:
+
+- The Phase 7 dynamic Poisson/Dixon-Coles goal model is fully and deterministically retrained at
+  each eligible matchweek cutoff. Every version uses all eligible historical data plus accepted
+  current-season results available at that cutoff.
+- Training waits for every non-postponed fixture assigned to the matchweek to have an accepted
+  final result. Postponed fixtures are excluded without blocking later matchweeks, and every
+  artifact records its exact included-fixture set.
+- A played schedule revision that is later rescheduled remains immutable and replayable, becomes
+  `void`, stops contributing to current coverage and standings, and is replaced by a new Play
+  window for the new revision.
+- A fresh installation bundles the approved Phase 7 and Phase 12 artifacts plus legally
+  distributable reference data. Without a provider key it starts in a setup-required state and
+  keeps Play disabled until current fixture synchronization succeeds.
+- An established installation that loses provider access preserves its database and saved
+  simulations, displays the last successful synchronization time, and labels stale data honestly.
+- Simulations created by the old automatic shared lifecycle are retained as read-only
+  `legacy_shared` audit records. They receive no invented device UUID and never affect per-device
+  standings or coverage.
+- Clearing browser storage, using another browser profile, or using a private browsing context
+  creates a new device identity. The old identity remains stored locally but is not automatically
+  claimed by the new browser identity.
+- One device UUID persists across seasons, while standings and coverage remain separate per
+  season. The first local edition provides no accounts or automatic device-identity recovery.
+- Fixture data is considered stale four hours after the last successful fixture reconciliation.
+  Play remains disabled while data is stale or startup reconciliation has not succeeded.
+- Repeated or concurrent Play calls do not regenerate an already-played revision; they return the
+  single existing stored simulation for that device, match, and schedule revision.
+
 ## Target runtime topology
 
 ```mermaid

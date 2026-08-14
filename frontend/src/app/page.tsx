@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { FixtureBoard } from "@/components/fixture-board";
 import { ProductShell } from "@/components/product-shell";
+import { SetupStatusNotice } from "@/components/setup-status";
 import styles from "./product.module.css";
 
 export default function Home() {
   return (
     <ProductShell active="home">
       <main className={styles.page} id="main-content">
+        <SetupStatusNotice />
         <section className={styles.hero} aria-labelledby="hero-title">
           <div className={styles.heroCopy}>
             <div>

@@ -5,6 +5,45 @@ It publishes one probabilistic forecast and one stored quick-match simulation fo
 each fixture, then compares them with the real result. Simulated and real-world
 standings are maintained separately.
 
+## Cloneable local quick start
+
+The active product direction is a self-contained local installation. After installing Git and
+Docker, start the complete foundation stack with:
+
+```powershell
+git clone <repository-url>
+cd Prem-Engine
+docker compose up --build
+```
+
+Open `http://localhost:3000`. PostgreSQL, migrations, idempotent initialization, FastAPI, the
+production Next.js server, and the local worker all run inside Compose. PostgreSQL is not published
+to the host or LAN.
+
+The application starts without a provider key and shows a setup-required state. To enable current
+fixture synchronization in the completed local edition, copy `.env.example` to the ignored `.env`
+file, set `KICKOFF_API_KEY`, and restart Compose. The key remains server-side.
+
+```powershell
+# Stop while preserving the database, raw captures, and local model volume
+docker compose down
+
+# Restart without rebuilding
+docker compose up
+
+# Destructive reset: permanently removes all local application data
+docker compose down -v
+```
+
+> **Warning:** `docker compose down -v` deletes the local database, simulations, raw captures, and
+> locally trained model artifacts. Ordinary `down`, restart, rebuild, and host reboot operations
+> preserve the named volumes.
+
+The local transition is being delivered in bounded milestones. The foundation Compose topology and
+safe unconfigured startup are implemented first; synchronization, Phase 7 catch-up training,
+per-device Play, local operations, and hosted-code removal follow the acceptance sequence in
+[the cloneable local architecture](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md).
+
 ## Project status
 
 Phases 1 through 15 and Phases 16A–16B are complete. The platform foundation now includes audited,

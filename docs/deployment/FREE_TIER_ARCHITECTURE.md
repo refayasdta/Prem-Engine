@@ -1,5 +1,9 @@
 # Free-tier deployment architecture
 
+> **Superseded target:** The active product direction is the cloneable local architecture in
+> [CLONEABLE_LOCAL_ARCHITECTURE.md](./CLONEABLE_LOCAL_ARCHITECTURE.md). This document is preserved
+> as historical Phase 16C design context and is not the target deployment architecture.
+
 This document records the deployment decisions and measurements agreed during Phase 16C planning.
 It is implementation context for future Codex work; it does not claim that the architecture has
 already been implemented or deployed.

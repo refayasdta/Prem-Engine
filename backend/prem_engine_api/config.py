@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     """Runtime settings shared by the API and scheduled jobs."""
 
     app_env: str = "development"
-    runtime_role: Literal["api", "worker", "forecast", "migration"] = "api"
+    deployment_mode: Literal["development", "local", "hosted"] = "development"
+    runtime_role: Literal["api", "worker", "forecast", "migration", "initializer"] = "api"
     log_level: str = "INFO"
     database_url: str = "postgresql+asyncpg://prem_engine:prem_engine@127.0.0.1:55432/prem_engine"
     database_pool_size: PositiveInt = 5
@@ -23,6 +24,10 @@ class Settings(BaseSettings):
     database_pool_timeout_seconds: PositiveInt = 10
     database_readiness_timeout_seconds: PositiveInt = 3
     database_ssl_required: bool = False
+    local_fixture_freshness_seconds: PositiveInt = 14400
+    local_worker_heartbeat_seconds: PositiveInt = 30
+    local_competition_code: str = "en.1"
+    local_competition_name: str = "Premier League"
     kickoff_api_base_url: str = "https://api.kickoffapi.com"
     kickoff_api_key: SecretStr | None = None
     kickoff_daily_request_limit: int = 100
@@ -122,6 +127,13 @@ class Settings(BaseSettings):
                 for token in origin_tokens
             ):
                 raise ValueError("origin tokens must contain at least 32 bytes")
+        if self.deployment_mode == "local":
+            if self.database_ssl_required:
+                raise ValueError("local deployment must not require database SSL")
+            if self.forecast_task_scheduling_enabled:
+                raise ValueError("local deployment cannot enable Cloud Tasks scheduling")
+            if self.public_snapshot_store != "disabled":
+                raise ValueError("local deployment cannot publish hosted public snapshots")
         if self.app_env.casefold() == "production" and not self.database_ssl_required:
             raise ValueError("DATABASE_SSL_REQUIRED must be true in production")
         if (

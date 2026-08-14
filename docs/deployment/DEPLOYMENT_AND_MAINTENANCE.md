@@ -1,5 +1,9 @@
 # Prem Engine deployment and maintenance guide
 
+> **Superseded target:** The active product direction is the cloneable local architecture in
+> [CLONEABLE_LOCAL_ARCHITECTURE.md](./CLONEABLE_LOCAL_ARCHITECTURE.md). These hosted operational
+> instructions are retained as historical Phase 16C context until local replacement acceptance.
+
 This guide turns the Phase 16C checklist into an operator sequence. It is intentionally split into
 source preparation, staging acceptance, production release, and ongoing maintenance. Running any
 cloud command, changing secrets, applying Terraform, invoking a job, migrating a real database, or

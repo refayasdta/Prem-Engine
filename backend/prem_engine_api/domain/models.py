@@ -50,6 +50,30 @@ def enum_values(enum_class: type[Any]) -> list[str]:
     return [str(member.value) for member in enum_class]
 
 
+class LocalInstallation(Base, TimestampMixin):
+    """Singleton metadata for one independently owned local installation."""
+
+    __tablename__ = "local_installations"
+    __table_args__ = (
+        CheckConstraint("singleton_key = 1", name="singleton_key_is_one"),
+        CheckConstraint(
+            "length(goal_model_sha256) = 64 AND length(statistics_model_sha256) = 64",
+            name="model_checksums_are_sha256",
+        ),
+    )
+
+    installation_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    singleton_key: Mapped[int] = mapped_column(SmallInteger, unique=True, default=1)
+    bootstrap_version: Mapped[str] = mapped_column(String(80))
+    goal_model_version: Mapped[str] = mapped_column(String(120))
+    goal_model_sha256: Mapped[str] = mapped_column(String(64))
+    statistics_model_version: Mapped[str] = mapped_column(String(120))
+    statistics_model_sha256: Mapped[str] = mapped_column(String(64))
+    initialized_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class Competition(Base, TimestampMixin):
     __tablename__ = "competitions"
 

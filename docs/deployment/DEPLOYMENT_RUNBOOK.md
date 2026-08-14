@@ -1,5 +1,9 @@
 # Prem Engine deployment runbook
 
+> **Superseded target:** The active product direction is the cloneable local architecture in
+> [CLONEABLE_LOCAL_ARCHITECTURE.md](./CLONEABLE_LOCAL_ARCHITECTURE.md). Do not use this hosted
+> runbook for a new local installation; it remains available only for historical audit context.
+
 Operator commands, infrastructure-source locations, release ordering, rollback, and recurring
 maintenance are documented in [DEPLOYMENT_AND_MAINTENANCE.md](./DEPLOYMENT_AND_MAINTENANCE.md).
 

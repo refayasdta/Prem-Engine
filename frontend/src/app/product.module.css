@@ -118,6 +118,49 @@
   padding-block: 20px 72px;
 }
 
+.setupNotice {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.2fr) 1fr;
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 20px;
+  padding: 20px 24px;
+  border: 1px solid var(--mist);
+  background: var(--deep-violet);
+}
+
+.setupNotice > span {
+  color: var(--mist);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.setupNotice strong {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.setupNotice p,
+.setupNotice small {
+  color: var(--mist);
+  line-height: 1.5;
+}
+
+.setupNotice p {
+  margin: 0;
+}
+
+.setupNotice small {
+  display: block;
+  margin-top: 8px;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
@@ -746,6 +789,12 @@
 
   .siteHeader {
     gap: 14px;
+  }
+
+  .setupNotice {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding-inline: 18px;
   }
 
   .modelBadge {

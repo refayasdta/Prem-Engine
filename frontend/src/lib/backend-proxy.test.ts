@@ -29,6 +29,19 @@ test("backend configuration requires an authenticated HTTPS origin in production
   );
 });
 
+test("setup status is never cached", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response('{"state":"setup_required"}', { status: 200 })) as typeof fetch;
+  try {
+    const response = await proxyBackend("/api/setup/status");
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function manifestFor(body: string, expiresAt: Date) {
   return JSON.stringify({
     schema_version: "prem-engine-public-snapshot-manifest-v1",

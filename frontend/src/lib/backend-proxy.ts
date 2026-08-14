@@ -112,6 +112,7 @@ function snapshotResponse(candidate: SnapshotCandidate, stale: boolean): Respons
 }
 
 function originCacheSeconds(path: string, body: string): number | null {
+  if (path === "/api/setup/status") return null;
   if (!path.endsWith("/forecast")) return DEFAULT_CACHE_SECONDS;
   try {
     const payload = JSON.parse(body) as {

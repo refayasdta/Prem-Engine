@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from prem_engine_api.api.forecasts import router as forecast_router
 from prem_engine_api.api.insights import router as insights_router
+from prem_engine_api.api.setup import router as setup_router
 from prem_engine_api.config import get_settings
 from prem_engine_api.db.dependencies import get_db_session
 from prem_engine_api.observability import RequestLoggingMiddleware, configure_observability
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(forecast_router)
     app.include_router(insights_router)
+    app.include_router(setup_router)
 
     @app.get("/health", response_model=HealthResponse, tags=["operations"])
     async def health() -> HealthResponse:

@@ -58,6 +58,17 @@ Fixture ingestion is idempotent and maintains:
 Provider standings remain validation input only. They never replace the real or
 simulated tables calculated from canonical match records.
 
+Import a complete fixture season with audited cursor pagination from the
+repository root:
+
+```powershell
+python backend/scripts/import_kickoffapi_season.py --league en.1 --season 2026
+```
+
+Each page is captured before normalization, respects the configured request
+budget, and idempotently creates or updates canonical fixtures and season-club
+memberships.
+
 ## Authenticated validation result
 
 The bounded probe made exactly three requests on 2026-08-07: v2 leagues, teams,

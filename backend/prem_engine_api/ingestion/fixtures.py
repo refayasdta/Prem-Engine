@@ -29,6 +29,7 @@ from prem_engine_api.domain.models import (
     MatchExternalReference,
     PredictionVersion,
     Season,
+    SeasonClub,
 )
 from prem_engine_api.providers.kickoffapi.contracts import (
     FixtureEnvelope,
@@ -91,6 +92,7 @@ class FixtureIngestor:
         if competition is None or home is None or away is None:
             return "pending_review"
         season = await self._resolve_season(competition, fixture.league)
+        await self._ensure_season_clubs(season, home, away)
         external_reference = await self._session.scalar(
             select(MatchExternalReference).where(
                 MatchExternalReference.provider == PROVIDER,
@@ -289,6 +291,22 @@ class FixtureIngestor:
             self._session.add(season)
             await self._session.flush()
         return season
+
+    async def _ensure_season_clubs(self, season: Season, home: Club, away: Club) -> None:
+        existing_club_uuids = set(
+            await self._session.scalars(
+                select(SeasonClub.club_uuid).where(
+                    SeasonClub.season_uuid == season.season_uuid,
+                    SeasonClub.club_uuid.in_((home.club_uuid, away.club_uuid)),
+                )
+            )
+        )
+        self._session.add_all(
+            SeasonClub(season_uuid=season.season_uuid, club_uuid=club.club_uuid)
+            for club in (home, away)
+            if club.club_uuid not in existing_club_uuids
+        )
+        await self._session.flush()
 
     async def _match_by_identity(
         self,

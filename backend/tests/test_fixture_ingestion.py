@@ -13,6 +13,7 @@ from prem_engine_api.domain.models import (
     Match,
     MatchExternalReference,
     PredictionVersion,
+    SeasonClub,
     StoredSimulation,
 )
 from prem_engine_api.ingestion.fixtures import FixtureIngestor
@@ -57,6 +58,7 @@ async def test_fixture_ingestion_is_idempotent_and_versions_corrections(
     assert await db_session.scalar(select(func.count()).select_from(Match)) == 1
     assert await db_session.scalar(select(func.count()).select_from(MatchExternalReference)) == 1
     assert await db_session.scalar(select(func.count()).select_from(Club)) == 2
+    assert await db_session.scalar(select(func.count()).select_from(SeasonClub)) == 2
 
     match = await db_session.scalar(select(Match))
     assert match is not None

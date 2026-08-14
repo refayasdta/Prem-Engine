@@ -413,6 +413,21 @@ discarded before its local replacement works.
 - Add chronological missed-matchweek training and artifact persistence.
 - Prove provider hard limits across startup, scheduled runs, retries, and manual actions.
 
+Implementation status (2026-08-14): fixture reconciliation now runs at startup, every four hours
+for the active date window, and once daily for the complete active season. Player context runs on a
+separate daily bounded allowance. The provider's explicit `round` value is stored as the canonical
+matchweek input; kickoff order is never used to guess it. A singleton database lease prevents two
+workers from performing the same operation, and the setup endpoint exposes progress, last success,
+the next attempt, and secret-free failure codes.
+
+The worker rebuilds the complete Phase 7 Poisson/Dixon-Coles model at every eligible matchweek
+cutoff, including chronological catch-up after downtime. Each successful registry entry records a
+cutoff revision, the exact matchweek fixture UUIDs, data and fixture-set checksums, feature schema,
+runtime versions, artifact checksum, and provenance-report checksum. Later result corrections or a
+voided played-then-rescheduled result create immutable replacement revisions and cascade through
+affected later cutoffs. Inference switches the active pointer only after the new files and database
+record succeed, so a failed rebuild leaves the last verified model active.
+
 ### Stage 4: replace automatic T−24h generation
 
 - Add per-device UUID handling.

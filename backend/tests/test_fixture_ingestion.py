@@ -21,13 +21,16 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def fixture_payload(*, status: str = "NS", home_score: int | None = None) -> dict[str, object]:
+def fixture_payload(
+    *, status: str = "NS", home_score: int | None = None
+) -> dict[str, object]:
     return {
         "data": [
             {
                 "id": "fx_phase4",
                 "date": "2026-08-15T14:00:00Z",
                 "status": status,
+                "round": "Matchday 1",
                 "league": {
                     "id": "en.1",
                     "name": "Premier League",
@@ -62,6 +65,8 @@ async def test_fixture_ingestion_is_idempotent_and_versions_corrections(
 
     match = await db_session.scalar(select(Match))
     assert match is not None
+    assert match.provider_round == "Matchday 1"
+    assert match.matchweek == 1
     prediction = PredictionVersion(
         match_uuid=match.match_uuid,
         version_number=1,

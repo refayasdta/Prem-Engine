@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -71,6 +71,8 @@ class ProviderFixture(BaseModel):
     score: ProviderScore | None = None
     home_score: int | None = Field(default=None, alias="homeScore")
     away_score: int | None = Field(default=None, alias="awayScore")
+    round: str | None = None
+    group: str | None = None
 
     @model_validator(mode="after")
     def require_teams(self) -> ProviderFixture:
@@ -216,8 +218,35 @@ class ProviderTransfer(BaseModel):
     id: str | int | None = None
     date: date
     type: str | None = None
-    player: ProviderPlayer
+    player: ProviderPlayer | None = None
+    player_id: str | int | None = Field(default=None, alias="playerId")
     teams: dict[str, Any] | None = None
+    team_in_id: str | int | None = Field(default=None, alias="teamInId")
+    team_out_id: str | int | None = Field(default=None, alias="teamOutId")
+
+    @model_validator(mode="after")
+    def require_player_reference(self) -> ProviderTransfer:
+        if self.player is None and self.player_id is None:
+            raise ValueError("transfer has no player reference")
+        return self
+
+    @property
+    def normalized_player(self) -> ProviderPlayer:
+        if self.player is not None:
+            return self.player
+        return ProviderPlayer(id=str(self.player_id))
+
+    @property
+    def normalized_teams(self) -> tuple[str | None, str | None]:
+        teams = self.teams or {}
+        incoming = teams.get("in") if isinstance(teams.get("in"), dict) else {}
+        outgoing = teams.get("out") if isinstance(teams.get("out"), dict) else {}
+        from_id = self.team_out_id or cast(dict[str, Any], outgoing).get("id")
+        to_id = self.team_in_id or cast(dict[str, Any], incoming).get("id")
+        return (
+            str(from_id) if from_id is not None else None,
+            str(to_id) if to_id is not None else None,
+        )
 
 
 class TransferEnvelope(BaseModel):

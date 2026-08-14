@@ -11,6 +11,7 @@ import pytest
 from prem_engine_api.domain.enums import FixtureStatus, JobStatus, PredictionState
 from prem_engine_api.domain.lifecycle import cancel_match, reschedule_match
 from prem_engine_api.domain.models import (
+    ActualResultRevision,
     Club,
     Competition,
     FixtureScheduleRevision,
@@ -142,6 +143,8 @@ async def test_migrated_schema_contains_core_tables(db_session: AsyncSession) ->
         "player_availability_reports",
         "transfer_observations",
         "lifecycle_events",
+        "local_worker_state",
+        "local_model_artifacts",
     } <= names
 
 
@@ -158,6 +161,16 @@ async def test_reschedule_voids_prediction_and_keeps_artifacts(db_session: Async
         attempt_count=0,
     )
     db_session.add(stale_job)
+    result = ActualResultRevision(
+        match_uuid=match.match_uuid,
+        revision_number=1,
+        home_goals=2,
+        away_goals=1,
+        accepted=True,
+        training_eligible=True,
+        observed_at=datetime(2026, 9, 1, 21, 0, tzinfo=UTC),
+    )
+    db_session.add(result)
     await db_session.flush()
 
     outcome = await reschedule_match(
@@ -166,7 +179,7 @@ async def test_reschedule_voids_prediction_and_keeps_artifacts(db_session: Async
         revised_kickoff_at=revised_kickoff,
         provider_status="TBD",
         actor="test-suite",
-        observed_at=datetime(2026, 8, 31, tzinfo=UTC),
+        observed_at=datetime(2026, 9, 2, tzinfo=UTC),
     )
 
     assert outcome.prediction_voided is True
@@ -175,6 +188,9 @@ async def test_reschedule_voids_prediction_and_keeps_artifacts(db_session: Async
     assert stale_job.status is JobStatus.CANCELLED
     assert match.current_kickoff_at == revised_kickoff
     assert match.prediction_due_at == revised_kickoff - timedelta(hours=24)
+    assert result.accepted is False
+    assert result.training_eligible is False
+    assert result.voided_at == datetime(2026, 9, 2, tzinfo=UTC)
     jobs = list(
         await db_session.scalars(select(JobRun).where(JobRun.match_uuid == match.match_uuid))
     )

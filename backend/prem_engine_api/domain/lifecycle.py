@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from prem_engine_api.domain.enums import FixtureStatus, JobStatus, PredictionState
 from prem_engine_api.domain.models import (
+    ActualResultRevision,
     FixtureScheduleRevision,
     JobRun,
     LifecycleEvent,
@@ -62,6 +63,31 @@ async def _cancel_generation_jobs(
     return len(jobs)
 
 
+async def _void_results_for_replay(
+    session: AsyncSession,
+    *,
+    match_uuid: UUID,
+    voided_at: datetime,
+) -> int:
+    """Keep old scores auditable while excluding them from rebuilt football state."""
+
+    revisions = list(
+        await session.scalars(
+            select(ActualResultRevision)
+            .where(
+                ActualResultRevision.match_uuid == match_uuid,
+                ActualResultRevision.training_eligible.is_(True),
+            )
+            .with_for_update()
+        )
+    )
+    for revision in revisions:
+        revision.accepted = False
+        revision.training_eligible = False
+        revision.voided_at = voided_at
+    return len(revisions)
+
+
 async def postpone_match(
     session: AsyncSession,
     *,
@@ -86,6 +112,11 @@ async def postpone_match(
         session,
         match_uuid=match_uuid,
         cancelled_at=effective_observed_at,
+    )
+    voided_results = await _void_results_for_replay(
+        session,
+        match_uuid=match_uuid,
+        voided_at=effective_observed_at,
     )
 
     current_revision = await session.scalar(
@@ -158,6 +189,7 @@ async def postpone_match(
             payload={
                 "prediction_voided": prediction_voided,
                 "generation_jobs_cancelled": cancelled_jobs,
+                "result_revisions_voided": voided_results,
             },
         )
     )
@@ -189,6 +221,11 @@ async def cancel_match(
         session,
         match_uuid=match_uuid,
         cancelled_at=effective_observed_at,
+    )
+    voided_results = await _void_results_for_replay(
+        session,
+        match_uuid=match_uuid,
+        voided_at=effective_observed_at,
     )
 
     current_revision = await session.scalar(
@@ -261,6 +298,7 @@ async def cancel_match(
             payload={
                 "prediction_voided": prediction_voided,
                 "generation_jobs_cancelled": cancelled_jobs,
+                "result_revisions_voided": voided_results,
             },
         )
     )
@@ -292,6 +330,11 @@ async def reschedule_match(
         session,
         match_uuid=match_uuid,
         cancelled_at=effective_observed_at,
+    )
+    voided_results = await _void_results_for_replay(
+        session,
+        match_uuid=match_uuid,
+        voided_at=effective_observed_at,
     )
 
     current_revision = await session.scalar(
@@ -384,6 +427,7 @@ async def reschedule_match(
                 "revised_kickoff_at": revised_kickoff_at.isoformat(),
                 "prediction_voided": prediction_voided,
                 "generation_jobs_cancelled": cancelled_jobs,
+                "result_revisions_voided": voided_results,
             },
         )
     )

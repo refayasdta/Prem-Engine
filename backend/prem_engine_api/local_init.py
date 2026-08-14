@@ -17,6 +17,8 @@ from prem_engine_api.domain.models import (
     Competition,
     CompetitionExternalReference,
     LocalInstallation,
+    LocalModelArtifact,
+    LocalWorkerState,
 )
 from prem_engine_api.historical.mapping import seed_reviewed_aliases
 from prem_engine_api.observability import configure_observability
@@ -66,6 +68,18 @@ async def initialize(settings: Settings) -> InitializationSummary:
     sessions = create_session_factory(engine)
     try:
         async with sessions.begin() as session:
+            active_goal = await session.scalar(
+                select(LocalModelArtifact).where(
+                    LocalModelArtifact.model_type == "dynamic_poisson_dixon_coles",
+                    LocalModelArtifact.status == "succeeded",
+                    LocalModelArtifact.active.is_(True),
+                )
+            )
+            effective_goal_version = goal_version
+            effective_goal_checksum = settings.goal_model_sha256
+            if active_goal is not None and active_goal.model_checksum is not None:
+                effective_goal_version = active_goal.model_version
+                effective_goal_checksum = active_goal.model_checksum
             installation = await session.scalar(
                 select(LocalInstallation).where(LocalInstallation.singleton_key == 1)
             )
@@ -74,8 +88,8 @@ async def initialize(settings: Settings) -> InitializationSummary:
                 installation = LocalInstallation(
                     singleton_key=1,
                     bootstrap_version=BOOTSTRAP_VERSION,
-                    goal_model_version=goal_version,
-                    goal_model_sha256=settings.goal_model_sha256,
+                    goal_model_version=effective_goal_version,
+                    goal_model_sha256=effective_goal_checksum,
                     statistics_model_version=statistics_version,
                     statistics_model_sha256=settings.statistics_model_sha256,
                 )
@@ -83,10 +97,16 @@ async def initialize(settings: Settings) -> InitializationSummary:
                 await session.flush()
             else:
                 installation.bootstrap_version = BOOTSTRAP_VERSION
-                installation.goal_model_version = goal_version
-                installation.goal_model_sha256 = settings.goal_model_sha256
+                installation.goal_model_version = effective_goal_version
+                installation.goal_model_sha256 = effective_goal_checksum
                 installation.statistics_model_version = statistics_version
                 installation.statistics_model_sha256 = settings.statistics_model_sha256
+
+            worker_state = await session.scalar(
+                select(LocalWorkerState).where(LocalWorkerState.singleton_key == 1)
+            )
+            if worker_state is None:
+                session.add(LocalWorkerState(singleton_key=1, status="idle"))
 
             reference = await session.scalar(
                 select(CompetitionExternalReference).where(
@@ -135,7 +155,7 @@ async def initialize(settings: Settings) -> InitializationSummary:
             created=created,
             provider_configured=settings.kickoff_api_key is not None,
             bootstrap_version=BOOTSTRAP_VERSION,
-            goal_model_version=goal_version,
+            goal_model_version=effective_goal_version,
             statistics_model_version=statistics_version,
             reviewed_clubs=len({club.club_uuid for club in clubs.values()}),
         )

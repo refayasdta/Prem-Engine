@@ -41,6 +41,19 @@ from prem_engine_api.providers.kickoffapi.status import map_fixture_status
 
 PROVIDER = "kickoffapi"
 MATCH_TOLERANCE = timedelta(hours=48)
+MATCHWEEK_PATTERN = re.compile(r"(?:matchday|matchweek|round)\s*-?\s*(\d+)", re.IGNORECASE)
+
+
+def matchweek_from_round(round_label: str | None) -> int | None:
+    """Extract an explicit positive matchweek without guessing from kickoff order."""
+
+    if round_label is None:
+        return None
+    match = MATCHWEEK_PATTERN.search(round_label.strip())
+    if match is None:
+        return None
+    value = int(match.group(1))
+    return value if 1 <= value <= 60 else None
 
 
 @dataclass(frozen=True)
@@ -100,6 +113,7 @@ class FixtureIngestor:
             )
         )
         canonical_status = map_fixture_status(fixture.status_code)
+        provider_matchweek = matchweek_from_round(fixture.round)
         if external_reference is None:
             match = await self._match_by_identity(
                 fixture=fixture,
@@ -133,6 +147,8 @@ class FixtureIngestor:
                 )
             )
             await self._upsert_actual_result(match, fixture, observed_at)
+            match.provider_round = fixture.round
+            match.matchweek = provider_matchweek
             await self._session.flush()
             return "created" if was_created else "updated"
 
@@ -140,6 +156,12 @@ class FixtureIngestor:
         if match is None:
             raise RuntimeError("match external reference points to a missing match")
         changed = False
+        if fixture.round is not None and (
+            match.provider_round != fixture.round or match.matchweek != provider_matchweek
+        ):
+            match.provider_round = fixture.round
+            match.matchweek = provider_matchweek
+            changed = True
         if canonical_status is FixtureStatus.POSTPONED:
             was_postponed = match.status is FixtureStatus.POSTPONED
             await postpone_match(
@@ -350,6 +372,8 @@ class FixtureIngestor:
             status=map_fixture_status(fixture.status_code),
             current_kickoff_at=fixture.date,
             prediction_due_at=fixture.date - timedelta(hours=24),
+            provider_round=fixture.round,
+            matchweek=matchweek_from_round(fixture.round),
         )
 
     async def _queue_review(

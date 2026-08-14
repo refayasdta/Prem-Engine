@@ -26,6 +26,22 @@ class Settings(BaseSettings):
     database_ssl_required: bool = False
     local_fixture_freshness_seconds: PositiveInt = 14400
     local_worker_heartbeat_seconds: PositiveInt = 30
+    local_fixture_sync_interval_seconds: PositiveInt = 14400
+    local_full_fixture_sync_interval_seconds: PositiveInt = 86400
+    local_fixture_sync_lookback_days: PositiveInt = 2
+    local_fixture_sync_horizon_days: PositiveInt = 45
+    local_fixture_sync_page_size: PositiveInt = 50
+    local_fixture_sync_max_pages: PositiveInt = 20
+    local_worker_lease_seconds: PositiveInt = 900
+    local_worker_retry_seconds: PositiveInt = 300
+    local_player_sync_interval_seconds: PositiveInt = 86400
+    local_player_sync_max_requests: PositiveInt = 12
+    local_player_sync_max_squads: NonNegativeInt = 6
+    local_player_sync_max_matches: NonNegativeInt = 1
+    local_goal_training_enabled: bool = True
+    local_goal_training_retry_seconds: PositiveInt = 900
+    local_model_root: Path = Path("artifacts/local")
+    local_season_start_year: PositiveInt | None = None
     local_competition_code: str = "en.1"
     local_competition_name: str = "Premier League"
     kickoff_api_base_url: str = "https://api.kickoffapi.com"
@@ -104,6 +120,13 @@ class Settings(BaseSettings):
 
         return None if value == "" else value
 
+    @field_validator("local_season_start_year", mode="before")
+    @classmethod
+    def empty_optional_integer_is_unset(cls, value: object) -> object:
+        """Allow an empty Compose override to request automatic season inference."""
+
+        return None if value == "" else value
+
     @model_validator(mode="after")
     def validate_operational_safety(self) -> Settings:
         """Prevent environment overrides from exceeding provider and production safeguards."""
@@ -116,6 +139,12 @@ class Settings(BaseSettings):
             raise ValueError("KickoffAPI operational limit cannot exceed its daily hard limit")
         if self.kickoff_operational_minute_limit > 25:
             raise ValueError("KICKOFF_OPERATIONAL_MINUTE_LIMIT cannot exceed 25/minute")
+        if self.local_fixture_sync_page_size > 50:
+            raise ValueError("LOCAL_FIXTURE_SYNC_PAGE_SIZE cannot exceed 50")
+        if self.local_fixture_sync_max_pages > 20:
+            raise ValueError("LOCAL_FIXTURE_SYNC_MAX_PAGES cannot exceed 20")
+        if self.local_player_sync_max_requests > self.kickoff_operational_request_limit:
+            raise ValueError("local player sync must fit inside the operational daily allowance")
         if not 1 <= self.kickoff_quota_warning_threshold <= 85:
             raise ValueError("KICKOFF_QUOTA_WARNING_THRESHOLD must be between 1 and 85")
         if self.api_origin_auth_enabled and self.api_origin_token is None:

@@ -289,21 +289,13 @@ class PlayerContextIngestor:
         created = unchanged = unresolved = 0
         for index, transfer in enumerate(envelope.data):
             try:
-                player = await self._player(transfer.player, observed_at)
+                player = await self._player(transfer.normalized_player, observed_at)
             except PlayerContextIngestionError:
                 unresolved += 1
                 continue
-            teams = transfer.teams or {}
-            incoming = (
-                cast(dict[str, Any], teams.get("in")) if isinstance(teams.get("in"), dict) else {}
-            )
-            outgoing = (
-                cast(dict[str, Any], teams.get("out")) if isinstance(teams.get("out"), dict) else {}
-            )
-            from_uuid = await self._club_uuid(
-                str(outgoing.get("id")) if outgoing.get("id") else None
-            )
-            to_uuid = await self._club_uuid(str(incoming.get("id")) if incoming.get("id") else None)
+            from_id, to_id = transfer.normalized_teams
+            from_uuid = await self._club_uuid(from_id)
+            to_uuid = await self._club_uuid(to_id)
             external_id = str(transfer.id) if transfer.id is not None else None
             existing = await self._session.scalar(
                 select(TransferObservation).where(

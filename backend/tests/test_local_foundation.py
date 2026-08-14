@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -54,9 +55,9 @@ def test_bootstrap_artifact_verification_is_checksum_pinned(tmp_path: Path) -> N
 async def test_setup_state_requires_a_key_before_first_sync() -> None:
     now = datetime(2026, 8, 14, tzinfo=UTC)
     missing_session = AsyncMock(spec=AsyncSession)
-    missing_session.scalar.side_effect = (None, 0, None)
+    missing_session.scalar.side_effect = (None, 0, None, None)
     configured_session = AsyncMock(spec=AsyncSession)
-    configured_session.scalar.side_effect = (None, 0, None)
+    configured_session.scalar.side_effect = (None, 0, None, None)
 
     missing_key = await build_setup_status(
         missing_session, settings=Settings(kickoff_api_key=None), now=now
@@ -77,9 +78,9 @@ async def test_setup_state_requires_a_key_before_first_sync() -> None:
 async def test_setup_state_reports_current_and_stale_fixture_data() -> None:
     now = datetime(2026, 8, 14, 12, tzinfo=UTC)
     current_session = AsyncMock(spec=AsyncSession)
-    current_session.scalar.side_effect = (None, 1, now - timedelta(minutes=4))
+    current_session.scalar.side_effect = (None, 1, None, now - timedelta(minutes=4))
     stale_session = AsyncMock(spec=AsyncSession)
-    stale_session.scalar.side_effect = (None, 1, now - timedelta(hours=5))
+    stale_session.scalar.side_effect = (None, 1, None, now - timedelta(hours=5))
 
     current = await build_setup_status(current_session, settings=Settings(), now=now)
     stale = await build_setup_status(stale_session, settings=Settings(), now=now)
@@ -88,3 +89,27 @@ async def test_setup_state_reports_current_and_stale_fixture_data() -> None:
     assert current.data_current is True
     assert stale.state == "stale"
     assert stale.fixture_count == 1
+
+
+@pytest.mark.asyncio
+async def test_setup_state_exposes_active_sync_progress() -> None:
+    now = datetime(2026, 8, 14, 12, tzinfo=UTC)
+    worker = SimpleNamespace(
+        status="syncing",
+        current_operation="fixture_full",
+        last_fixture_success_at=None,
+        pages_processed=3,
+        records_received=150,
+        last_error_code=None,
+        next_fixture_sync_at=None,
+        last_player_sync_at=None,
+    )
+    session = AsyncMock(spec=AsyncSession)
+    session.scalar.side_effect = (None, 150, worker, None)
+
+    status = await build_setup_status(session, settings=Settings(), now=now)
+
+    assert status.state == "syncing"
+    assert status.sync_operation == "fixture_full"
+    assert status.sync_pages_processed == 3
+    assert status.sync_records_received == 150

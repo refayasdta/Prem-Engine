@@ -134,3 +134,21 @@ def test_availability_and_transfer_contracts_allow_sparse_references() -> None:
     assert injuries.data[0].injury.type == "Suspension"
     assert isinstance(transfers, TransferEnvelope)
     assert transfers.data[0].date.isoformat() == "2026-07-01"
+
+    flattened = validate_endpoint_payload(
+        "/api/v2/transfers",
+        {
+            "data": [
+                {
+                    "id": 2,
+                    "date": "2026-07-02",
+                    "playerId": 101,
+                    "teamOutId": 10,
+                    "teamInId": 20,
+                }
+            ]
+        },
+    )
+    assert isinstance(flattened, TransferEnvelope)
+    assert flattened.data[0].normalized_player.id == "101"
+    assert flattened.data[0].normalized_teams == ("10", "20")

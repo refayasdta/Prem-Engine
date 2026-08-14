@@ -74,6 +74,48 @@ class LocalInstallation(Base, TimestampMixin):
     )
 
 
+class LocalWorkerState(Base, TimestampMixin):
+    """Singleton lease, progress, and scheduling state for the local worker."""
+
+    __tablename__ = "local_worker_state"
+    __table_args__ = (
+        CheckConstraint("singleton_key = 1", name="singleton_key_is_one"),
+        CheckConstraint(
+            "status IN ('idle', 'syncing', 'setup_required', 'error', 'quota_limited')",
+            name="valid_status",
+        ),
+        CheckConstraint(
+            "pages_processed >= 0 AND records_received >= 0 AND records_created >= 0 "
+            "AND records_updated >= 0 AND records_unchanged >= 0 "
+            "AND records_pending_review >= 0",
+            name="nonnegative_progress",
+        ),
+    )
+
+    worker_state_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    singleton_key: Mapped[int] = mapped_column(SmallInteger, unique=True, default=1)
+    status: Mapped[str] = mapped_column(String(32), default="idle")
+    current_operation: Mapped[str | None] = mapped_column(String(80))
+    lease_owner: Mapped[str | None] = mapped_column(String(160))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_fixture_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_fixture_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_full_fixture_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_fixture_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_player_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_player_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_training_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_training_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(String(120))
+    last_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pages_processed: Mapped[int] = mapped_column(Integer, default=0)
+    records_received: Mapped[int] = mapped_column(Integer, default=0)
+    records_created: Mapped[int] = mapped_column(Integer, default=0)
+    records_updated: Mapped[int] = mapped_column(Integer, default=0)
+    records_unchanged: Mapped[int] = mapped_column(Integer, default=0)
+    records_pending_review: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Competition(Base, TimestampMixin):
     __tablename__ = "competitions"
 
@@ -368,6 +410,9 @@ class Match(Base, TimestampMixin):
     __tablename__ = "matches"
     __table_args__ = (
         CheckConstraint("home_club_uuid <> away_club_uuid", name="different_clubs"),
+        CheckConstraint(
+            "matchweek IS NULL OR matchweek BETWEEN 1 AND 60", name="valid_matchweek"
+        ),
         Index("ix_matches_season_kickoff", "season_uuid", "current_kickoff_at"),
     )
 
@@ -395,6 +440,8 @@ class Match(Base, TimestampMixin):
         default=KickoffPrecision.EXACT,
     )
     prediction_due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    provider_round: Mapped[str | None] = mapped_column(String(80))
+    matchweek: Mapped[int | None] = mapped_column(SmallInteger, index=True)
 
 
 class MatchExternalReference(Base, TimestampMixin):
@@ -464,8 +511,60 @@ class ActualResultRevision(Base, TimestampMixin):
         default=ResultKind.REGULAR,
     )
     accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+    training_eligible: Mapped[bool] = mapped_column(Boolean, default=True)
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     provider_payload_key: Mapped[str | None] = mapped_column(Text)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LocalModelArtifact(Base, TimestampMixin):
+    """Immutable registry entry for one chronological local model cutoff."""
+
+    __tablename__ = "local_model_artifacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "model_type", "season_uuid", "cutoff_matchweek", "cutoff_revision"
+        ),
+        UniqueConstraint("model_version"),
+        CheckConstraint("cutoff_matchweek BETWEEN 1 AND 60", name="valid_matchweek"),
+        CheckConstraint("cutoff_revision >= 1", name="valid_cutoff_revision"),
+        CheckConstraint(
+            "status IN ('running', 'succeeded', 'failed')", name="valid_status"
+        ),
+        CheckConstraint(
+            "length(training_data_checksum) = 64 AND length(fixture_set_checksum) = 64",
+            name="dataset_checksums_are_sha256",
+        ),
+        Index(
+            "uq_local_model_artifacts_active_type",
+            "model_type",
+            unique=True,
+            postgresql_where=text("active IS TRUE"),
+        ),
+    )
+
+    artifact_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    model_type: Mapped[str] = mapped_column(String(80), index=True)
+    model_version: Mapped[str] = mapped_column(String(120))
+    season_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("seasons.season_uuid", ondelete="RESTRICT"), index=True
+    )
+    cutoff_matchweek: Mapped[int] = mapped_column(SmallInteger)
+    cutoff_revision: Mapped[int] = mapped_column(SmallInteger, default=1)
+    cutoff_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=False)
+    training_data_checksum: Mapped[str] = mapped_column(String(64))
+    fixture_set_checksum: Mapped[str] = mapped_column(String(64))
+    included_fixture_uuids: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    feature_schema: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    runtime_versions: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
+    artifact_path: Mapped[str | None] = mapped_column(Text)
+    model_checksum: Mapped[str | None] = mapped_column(String(64))
+    report_checksum: Mapped[str | None] = mapped_column(String(64))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(120))
 
 
 class PredictionVersion(Base, TimestampMixin):

@@ -21,8 +21,10 @@ production Next.js server, and the local worker all run inside Compose. PostgreS
 to the host or LAN.
 
 The application starts without a provider key and shows a setup-required state. To enable current
-fixture synchronization in the completed local edition, copy `.env.example` to the ignored `.env`
-file, set `KICKOFF_API_KEY`, and restart Compose. The key remains server-side.
+fixture synchronization, copy `.env.example` to the ignored `.env` file, set `KICKOFF_API_KEY`, and
+restart Compose. The key remains server-side. The worker performs a full startup reconciliation,
+refreshes the active fixture window every four hours, refreshes player context daily, and reports
+progress or a safe error code in the browser.
 
 ```powershell
 # Stop while preserving the database, raw captures, and local model volume
@@ -39,10 +41,16 @@ docker compose down -v
 > locally trained model artifacts. Ordinary `down`, restart, rebuild, and host reboot operations
 > preserve the named volumes.
 
-The local transition is being delivered in bounded milestones. The foundation Compose topology and
-safe unconfigured startup are implemented first; synchronization, Phase 7 catch-up training,
-per-device Play, local operations, and hosted-code removal follow the acceptance sequence in
-[the cloneable local architecture](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md).
+The local transition is being delivered in bounded milestones. The foundation Compose topology,
+safe unconfigured startup, audited synchronization, and chronological Phase 7 catch-up training are
+implemented. Per-device Play, local operations, and hosted-code removal follow the acceptance
+sequence in [the cloneable local architecture](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md).
+
+Completed matchweeks are refitted in order using the approved Phase 7 configuration and all
+eligible historical plus current-season results known at the cutoff. Postponed fixtures do not
+block later matchweeks. Corrections and replayed fixtures create new immutable cutoff revisions;
+the previous verified model remains active until the replacement artifact and provenance checksums
+have been persisted successfully.
 
 ## Project status
 

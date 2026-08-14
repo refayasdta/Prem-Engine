@@ -31,17 +31,17 @@ export default function Home() {
             </div>
             <div className={styles.engineCore}>
               <div>
-                <b>T-24</b>
+                <b>PLAY</b>
                 <p>
-                  <strong>Forecast</strong>
-                  <span>Expected score, outcome probabilities, lineup, and match statistics.</span>
+                  <strong>Your simulation</strong>
+                  <span>Unlocks at T-24 and remains available through T+45 minutes.</span>
                 </p>
               </div>
               <div>
                 <b>01:00</b>
                 <p>
                   <strong>Replay</strong>
-                  <span>The stored match unfolds at one fixed presentation speed for everyone.</span>
+                  <span>Your saved match unfolds at one fixed presentation speed on this device.</span>
                 </p>
               </div>
               <div>
@@ -89,7 +89,7 @@ export default function Home() {
             <article className={styles.methodCard}>
               <span>02 / Simulated Table</span>
               <h3>The simulated table</h3>
-              <p>Built from active stored matches after their synchronized 60-second reveal completes.</p>
+              <p>Built from this device’s saved Play results. Missed and void fixtures add nothing.</p>
               <Link className={styles.secondaryButton} href="/standings">Open standings</Link>
             </article>
             <article className={styles.methodCard}>

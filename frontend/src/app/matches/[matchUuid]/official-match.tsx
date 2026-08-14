@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ClubCrest } from "@/components/club-crest";
 import { secondsUntil } from "@/lib/countdown";
+import { getOrCreateDeviceUuid } from "@/lib/device-identity";
 import type {
   ForecastEvent,
   ForecastLineup,
@@ -81,14 +82,22 @@ function Lineup({ lineup, side }: { lineup: ForecastLineup; side: TeamSide }) {
   );
 }
 
-function WaitingState({ data }: { data: MatchForecast }) {
+function WaitingState({
+  data,
+  playing,
+  onPlay,
+}: {
+  data: MatchForecast;
+  playing: boolean;
+  onPlay: () => void;
+}) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (data.lifecycle_state !== "countdown") return;
+    if (data.lifecycle_state !== "locked") return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [data.lifecycle_state, data.prediction_due_at]);
+  }, [data.lifecycle_state, data.window_opens_at]);
 
   const messages = {
     countdown: "The backend will generate and lock this match automatically at T-24.",
@@ -98,23 +107,45 @@ function WaitingState({ data }: { data: MatchForecast }) {
     unavailable: "The forecast could not be generated from the currently available evidence.",
     live: "The stored simulation is being revealed.",
     complete: "The stored presentation is complete.",
+    locked: "Play unlocks exactly 24 hours before kickoff.",
+    available: "Generate this device's one permanent simulation for the current schedule.",
+    missed: "This schedule closed without Play and cannot be generated retrospectively.",
+    void: "This saved revision was voided after the fixture schedule changed.",
+    stale: "New Play is disabled until fixture synchronization succeeds.",
   } as const;
   const title = data.lifecycle_state === "countdown"
     ? countdown(secondsUntil(data.prediction_due_at, now))
     : data.lifecycle_state === "generating"
       ? "Locking forecast…"
       : "No active simulation";
+  const stateTitle = data.lifecycle_state === "locked"
+    ? countdown(secondsUntil(data.window_opens_at ?? data.prediction_due_at, now))
+    : data.lifecycle_state === "available"
+      ? "READY"
+      : data.lifecycle_state === "missed"
+        ? "MISSED"
+        : data.lifecycle_state === "stale"
+          ? "SYNC REQUIRED"
+          : title;
 
   return (
     <section
       className={styles.waiting}
       role="status"
-      aria-live={data.lifecycle_state === "countdown" ? "off" : "polite"}
+      aria-live={data.lifecycle_state === "locked" ? "off" : "polite"}
     >
       <p className={styles.eyebrow}>{data.lifecycle_state}</p>
-      <h2 role={data.lifecycle_state === "countdown" ? "timer" : undefined}>{title}</h2>
+      <h2 role={data.lifecycle_state === "locked" ? "timer" : undefined}>{stateTitle}</h2>
       <p>{messages[data.lifecycle_state]}</p>
-      <small>Scheduled generation: {new Date(data.prediction_due_at).toLocaleString("en-GB")}</small>
+      {data.lifecycle_state === "available" ? (
+        <button className={styles.playButton} type="button" disabled={playing} onClick={onPlay}>
+          {playing ? "Generating…" : "Play simulation"}
+        </button>
+      ) : null}
+      <small>
+        Play window: {new Date(data.window_opens_at ?? data.prediction_due_at).toLocaleString("en-GB")}
+        {data.window_closes_at ? ` – ${new Date(data.window_closes_at).toLocaleString("en-GB")}` : ""}
+      </small>
     </section>
   );
 }
@@ -122,16 +153,51 @@ function WaitingState({ data }: { data: MatchForecast }) {
 export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
   const [data, setData] = useState<MatchForecast | null>(null);
   const [error, setError] = useState("");
+  const [deviceUuid] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : getOrCreateDeviceUuid()
+  );
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
-    return subscribeOfficialForecast(matchUuid, {
+    if (!deviceUuid) return;
+    return subscribeOfficialForecast(matchUuid, deviceUuid, {
       onData: (forecast) => {
         setData(forecast);
         setError("");
       },
       onError: setError,
     });
-  }, [matchUuid]);
+  }, [deviceUuid, matchUuid]);
+
+  async function play() {
+    if (!deviceUuid || playing) return;
+    setPlaying(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/matches/${encodeURIComponent(matchUuid)}/forecast`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ device_uuid: deviceUuid }),
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        const detail = typeof payload === "object" && payload !== null && "detail" in payload
+          ? payload.detail
+          : null;
+        const message = typeof detail === "string"
+          ? detail
+          : typeof detail === "object" && detail !== null && "message" in detail
+            ? String(detail.message)
+            : "Play could not be completed.";
+        throw new Error(message);
+      }
+      setData(payload as MatchForecast);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Play could not be completed.");
+    } finally {
+      setPlaying(false);
+    }
+  }
 
   const events = useMemo(() => data?.simulation?.events ?? [], [data?.simulation?.events]);
   const feed = useMemo(
@@ -143,8 +209,8 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
     return (
       <main className={styles.shell} id="main-content">
         <section className={styles.state} role="status" aria-busy={!error}>
-          <span>{error ? "API" : "T-24"}</span>
-          <h1>{error ? "Official match unavailable" : "Loading official match"}</h1>
+          <span>{error ? "API" : "PLAY"}</span>
+          <h1>{error ? "Match unavailable" : "Loading your match"}</h1>
           <p>
             {error || "Connecting to the canonical match record. No sample teams will be shown."}
           </p>
@@ -172,7 +238,7 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
       ) : null}
       <header className={styles.meta}>
         <div>
-          <p className={styles.eyebrow}>Premier League · stored T-24 forecast</p>
+          <p className={styles.eyebrow}>Premier League · your saved simulation</p>
           <p>Kickoff {new Date(data.kickoff_at).toLocaleString("en-GB")}</p>
         </div>
         <span className={styles.status}>{data.lifecycle_state}</span>
@@ -184,13 +250,13 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
           <div><small>Home</small><h1>{data.home.name}</h1></div>
         </div>
         <div className={styles.scoreCenter}>
-          <time>{simulation ? phaseLabel : "T-24"}</time>
+          <time>{simulation ? phaseLabel : "PLAY"}</time>
           <p>
             {simulation ? simulation.final_score?.home ?? simulation.scoreboard_home : "—"}
             <span>:</span>
             {simulation ? simulation.final_score?.away ?? simulation.scoreboard_away : "—"}
           </p>
-          <small>{simulation ? "Automatic 01:00 presentation" : "Awaiting stored simulation"}</small>
+          <small>{simulation ? "Saved 01:00 presentation" : "Awaiting your Play action"}</small>
         </div>
         <div className={`${styles.team} ${styles.away}`}>
           <div><small>Away</small><h1>{data.away.name}</h1></div>
@@ -199,7 +265,7 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
       </section>
 
       {!prediction || !simulation ? (
-        <WaitingState data={data} />
+        <WaitingState data={data} playing={playing} onPlay={() => void play()} />
       ) : (
         <>
           <section className={styles.forecast} aria-label="Outcome forecast">

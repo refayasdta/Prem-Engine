@@ -16,13 +16,13 @@ export default function FixturesPage() {
             <p className={styles.eyebrow}>Premier League schedule</p>
             <h1>Fixtures</h1>
             <p>
-              Every listed fixture is a canonical database record. Open a match to see its T-24
-              countdown or its locked official forecast and synchronized one-minute presentation.
+              Every listed fixture is a canonical database record. Play unlocks at T-24 and stays
+              available through T+45 minutes for one saved simulation on this device.
             </p>
           </div>
           <aside className={styles.pageIntroAside} aria-label="Fixture rules">
-            <div><span>Generation</span><strong>Automatic</strong></div>
-            <div><span>Lock point</span><strong>T-24 hours</strong></div>
+            <div><span>Generation</span><strong>User Play</strong></div>
+            <div><span>Window</span><strong>T-24 to T+45</strong></div>
             <div><span>Presentation</span><strong>60 seconds</strong></div>
             <div><span>Postponement</span><strong>Void + reschedule</strong></div>
           </aside>

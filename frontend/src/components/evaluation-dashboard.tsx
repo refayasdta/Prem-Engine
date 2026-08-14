@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ClubCrest } from "./club-crest";
+import { getOrCreateDeviceUuid } from "@/lib/device-identity";
 import type { EvaluationOverview, MatchEvaluation } from "@/lib/insights-types";
 import styles from "@/app/insights.module.css";
 
@@ -43,10 +44,17 @@ export function EvaluationDashboard() {
   const [data, setData] = useState<EvaluationOverview | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [deviceUuid] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : getOrCreateDeviceUuid()
+  );
 
   useEffect(() => {
+    if (!deviceUuid) return;
     const controller = new AbortController();
-    fetch("/api/evaluation", { cache: "no-store", signal: controller.signal })
+    fetch(`/api/evaluation?device_uuid=${encodeURIComponent(deviceUuid)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then(async (response) => {
         const payload = (await response.json()) as EvaluationOverview | { detail?: string };
         if (!response.ok || !("metrics" in payload)) {
@@ -64,7 +72,7 @@ export function EvaluationDashboard() {
         }
       });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, deviceUuid]);
 
   if (!data && !error) {
     return <div className={styles.loading} aria-label="Loading evaluation" aria-busy="true">
@@ -83,7 +91,7 @@ export function EvaluationDashboard() {
   if (!data.season) {
     return <div className={styles.state} role="status">
       <span>00</span><h2>No canonical season is loaded</h2>
-      <p>Evaluation begins after the season, locked predictions, and real results are available.</p>
+      <p>Evaluation begins after this device has played a match with an accepted real result.</p>
     </div>;
   }
 
@@ -94,9 +102,8 @@ export function EvaluationDashboard() {
           <span className={styles.tableMeta}>Live accountability report</span>
           <h2>OptiMatch Performance</h2>
           <p>
-            These figures are recalculated from immutable OptiMatch Model forecasts paired with
-            accepted real results. They are not the historical training score and they never
-            rewrite a pick.
+            These figures are recalculated from this device’s immutable Play forecasts paired with
+            accepted real results. They never rewrite a pick or claim a late Play was exact T-24.
           </p>
         </div>
         <div>
@@ -124,7 +131,7 @@ export function EvaluationDashboard() {
         <div className={styles.state} role="status">
           <span>0%</span><h2>No ordinary results to score yet</h2>
           <p>
-            Metrics appear only after a locked forecast is paired with an accepted result. Awarded
+            Metrics appear only after a saved Play forecast is paired with an accepted result. Awarded
             fixtures remain visible below but are excluded from ordinary accuracy.
           </p>
         </div>

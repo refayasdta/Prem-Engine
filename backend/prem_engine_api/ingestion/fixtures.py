@@ -413,6 +413,8 @@ class FixtureIngestor:
         provider_status: str,
         observed_at: datetime,
     ) -> None:
+        """Update status without inventing a new kickoff/schedule revision."""
+
         current = await self._session.scalar(
             select(FixtureScheduleRevision).where(
                 FixtureScheduleRevision.match_uuid == match.match_uuid,
@@ -420,19 +422,14 @@ class FixtureIngestor:
             )
         )
         if current is not None:
-            current.superseded_at = observed_at
-        revision_number = (
-            await self._session.scalar(
-                select(func.coalesce(func.max(FixtureScheduleRevision.revision_number), 0)).where(
-                    FixtureScheduleRevision.match_uuid == match.match_uuid
-                )
-            )
-            or 0
-        ) + 1
+            current.canonical_status = status
+            current.provider_status = provider_status
+            current.observed_at = observed_at
+            return
         self._session.add(
             FixtureScheduleRevision(
                 match_uuid=match.match_uuid,
-                revision_number=revision_number,
+                revision_number=1,
                 kickoff_at=match.current_kickoff_at,
                 canonical_status=status,
                 provider_status=provider_status,

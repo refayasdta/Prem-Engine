@@ -5,7 +5,12 @@ export type LifecycleState =
   | "complete"
   | "postponed"
   | "cancelled"
-  | "unavailable";
+  | "unavailable"
+  | "locked"
+  | "available"
+  | "missed"
+  | "void"
+  | "stale";
 
 export type TeamSide = "home" | "away";
 export type Numeric = number | string;
@@ -68,11 +73,19 @@ export interface MatchForecast {
   kickoff_at: string;
   prediction_due_at: string;
   seconds_until_generation: number;
+  seconds_until_play: number;
+  schedule_revision_uuid: string | null;
+  schedule_revision_number: number | null;
+  window_opens_at: string | null;
+  window_closes_at: string | null;
+  data_current: boolean;
+  play_classification: string | null;
+  generated_at: string | null;
   home: ClubSummary;
   away: ClubSummary;
   prediction: null | {
-    prediction_version_uuid: string;
-    version_number: number;
+    prediction_version_uuid: string | null;
+    version_number: number | null;
     locked_at: string;
     feature_cutoff_at: string;
     feature_snapshot_checksum: string;

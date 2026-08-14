@@ -76,7 +76,9 @@ class OfficialArtifactForecastFactory:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def _goal_artifact(self, session: AsyncSession) -> tuple[Path, str]:
+    async def _goal_artifact(
+        self, session: AsyncSession, *, cutoff: datetime
+    ) -> tuple[Path, str]:
         path = self._settings.goal_model_path
         checksum = self._settings.goal_model_sha256
         if self._settings.deployment_mode == "local":
@@ -85,7 +87,11 @@ class OfficialArtifactForecastFactory:
                 .where(
                     LocalModelArtifact.model_type == "dynamic_poisson_dixon_coles",
                     LocalModelArtifact.status == "succeeded",
-                    LocalModelArtifact.active.is_(True),
+                    LocalModelArtifact.cutoff_at < cutoff,
+                )
+                .order_by(
+                    LocalModelArtifact.cutoff_at.desc(),
+                    LocalModelArtifact.cutoff_revision.desc(),
                 )
                 .limit(1)
             )
@@ -122,7 +128,7 @@ class OfficialArtifactForecastFactory:
         if cutoff != match.prediction_due_at:
             raise ForecastInputUnavailableError("requested cutoff is not the current T-24 time")
 
-        goal_path, goal_checksum = await self._goal_artifact(session)
+        goal_path, goal_checksum = await self._goal_artifact(session, cutoff=cutoff)
         statistics_path = _verified_path(
             self._settings.statistics_model_path,
             self._settings.statistics_model_sha256,

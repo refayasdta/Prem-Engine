@@ -7,13 +7,13 @@ import { ClubCrest } from "./club-crest";
 import styles from "@/app/product.module.css";
 
 function compactCountdown(totalSeconds: number) {
-  if (totalSeconds <= 0) return "Forecast window open";
+  if (totalSeconds <= 0) return "Play available";
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (days) return `Forecast in ${days}d ${hours}h`;
-  if (hours) return `Forecast in ${hours}h ${minutes}m`;
-  return `Forecast in ${minutes}m`;
+  if (days) return `Play in ${days}d ${hours}h`;
+  if (hours) return `Play in ${hours}h ${minutes}m`;
+  return `Play in ${minutes}m`;
 }
 
 function dayLabel(value: string) {

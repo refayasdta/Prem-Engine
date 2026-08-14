@@ -437,6 +437,15 @@ record succeed, so a failed rebuild leaves the last verified model active.
 - Add permanent missed handling and remove retrospective generation.
 - Update the simulated table and coverage summary.
 
+Implemented in the Stage 4 checkpoint on 2026-08-14. The database now retains legacy shared
+simulations separately from device simulations; the latter are unique by device, match, and
+schedule revision. FastAPI enforces the inclusive T−24h through T+45m window and four-hour fixture
+freshness boundary, records pre-kickoff versus in-play-time classifications, creates permanent
+missed records, and voids old revision timelines on schedule changes. The Next.js client persists a
+random UUID in local storage and uses it for Play, standings, coverage, and evaluation. Boundary,
+idempotency, concurrency, separate-device, stale-data, standings, evaluation, and reschedule tests
+cover the replacement lifecycle.
+
 ### Stage 5: local operations and mobile LAN support
 
 - Add backup, restore, health, logs, disk-use checks, and local diagnostics.

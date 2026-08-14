@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from prem_engine_api.domain.enums import FixtureStatus, JobStatus, PredictionState
 from prem_engine_api.domain.models import (
     ActualResultRevision,
+    DeviceSimulation,
     FixtureScheduleRevision,
     JobRun,
     LifecycleEvent,
@@ -88,6 +89,34 @@ async def _void_results_for_replay(
     return len(revisions)
 
 
+async def _void_device_simulations(
+    session: AsyncSession,
+    *,
+    schedule_revision_uuid: UUID | None,
+    voided_at: datetime,
+    reason: str,
+) -> int:
+    """Retain old device timelines for replay while excluding them from current tables."""
+
+    if schedule_revision_uuid is None:
+        return 0
+    simulations = list(
+        await session.scalars(
+            select(DeviceSimulation)
+            .where(
+                DeviceSimulation.schedule_revision_uuid == schedule_revision_uuid,
+                DeviceSimulation.state.in_(("played", "missed")),
+            )
+            .with_for_update()
+        )
+    )
+    for simulation in simulations:
+        simulation.state = "void"
+        simulation.voided_at = voided_at
+        simulation.void_reason = reason
+    return len(simulations)
+
+
 async def postpone_match(
     session: AsyncSession,
     *,
@@ -128,7 +157,15 @@ async def postpone_match(
         .with_for_update()
     )
     if current_revision is not None:
+        voided_device_simulations = await _void_device_simulations(
+            session,
+            schedule_revision_uuid=current_revision.revision_uuid,
+            voided_at=effective_observed_at,
+            reason="fixture_postponed",
+        )
         current_revision.superseded_at = effective_observed_at
+    else:
+        voided_device_simulations = 0
     revision_number = (
         await session.scalar(
             select(func.coalesce(func.max(FixtureScheduleRevision.revision_number), 0)).where(
@@ -190,6 +227,7 @@ async def postpone_match(
                 "prediction_voided": prediction_voided,
                 "generation_jobs_cancelled": cancelled_jobs,
                 "result_revisions_voided": voided_results,
+                "device_simulations_voided": voided_device_simulations,
             },
         )
     )
@@ -237,7 +275,15 @@ async def cancel_match(
         .with_for_update()
     )
     if current_revision is not None:
+        voided_device_simulations = await _void_device_simulations(
+            session,
+            schedule_revision_uuid=current_revision.revision_uuid,
+            voided_at=effective_observed_at,
+            reason="fixture_cancelled",
+        )
         current_revision.superseded_at = effective_observed_at
+    else:
+        voided_device_simulations = 0
     revision_number = (
         await session.scalar(
             select(func.coalesce(func.max(FixtureScheduleRevision.revision_number), 0)).where(
@@ -299,6 +345,7 @@ async def cancel_match(
                 "prediction_voided": prediction_voided,
                 "generation_jobs_cancelled": cancelled_jobs,
                 "result_revisions_voided": voided_results,
+                "device_simulations_voided": voided_device_simulations,
             },
         )
     )
@@ -346,7 +393,15 @@ async def reschedule_match(
         .with_for_update()
     )
     if current_revision is not None:
+        voided_device_simulations = await _void_device_simulations(
+            session,
+            schedule_revision_uuid=current_revision.revision_uuid,
+            voided_at=effective_observed_at,
+            reason="fixture_rescheduled",
+        )
         current_revision.superseded_at = effective_observed_at
+    else:
+        voided_device_simulations = 0
 
     revision_number = (
         await session.scalar(
@@ -428,6 +483,7 @@ async def reschedule_match(
                 "prediction_voided": prediction_voided,
                 "generation_jobs_cancelled": cancelled_jobs,
                 "result_revisions_voided": voided_results,
+                "device_simulations_voided": voided_device_simulations,
             },
         )
     )

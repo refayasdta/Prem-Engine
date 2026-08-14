@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ClubCrest } from "./club-crest";
+import { getOrCreateDeviceUuid } from "@/lib/device-identity";
 import type { StandingsOverview, StandingsRow, StandingsTable } from "@/lib/insights-types";
 import styles from "@/app/insights.module.css";
 
@@ -145,10 +146,17 @@ export function StandingsDashboard() {
   const [data, setData] = useState<StandingsOverview | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [deviceUuid] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : getOrCreateDeviceUuid()
+  );
 
   useEffect(() => {
+    if (!deviceUuid) return;
     const controller = new AbortController();
-    fetch("/api/standings", { cache: "no-store", signal: controller.signal })
+    fetch(`/api/standings?device_uuid=${encodeURIComponent(deviceUuid)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then(async (response) => {
         const payload = (await response.json()) as StandingsOverview | { detail?: string };
         if (!response.ok || !("real" in payload)) {
@@ -166,7 +174,7 @@ export function StandingsDashboard() {
         }
       });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, deviceUuid]);
 
   const realPositions = useMemo(
     () => new Map(data?.real.rows.map((row) => [row.club.club_uuid, row]) ?? []),
@@ -199,8 +207,8 @@ export function StandingsDashboard() {
       <div className={styles.summaryStrip}>
         <div><span>Season</span><strong>{data.season.label}</strong></div>
         <div><span>Real matches</span><strong>{data.real.source_fixture_count}</strong></div>
-        <div><span>Simulated matches</span><strong>{data.simulated.source_fixture_count}</strong></div>
-        <div><span>Fair pairs</span><strong>{data.fair_comparison.source_fixture_count}</strong></div>
+        <div><span>Coverage</span><strong>{data.coverage.played} of {data.coverage.eligible}</strong></div>
+        <div><span>Missed</span><strong>{data.coverage.missed}</strong></div>
       </div>
       <div className={styles.tablesGrid}>
         <StandingsTableView table={data.real} />
@@ -208,9 +216,8 @@ export function StandingsDashboard() {
       </div>
       <FairComparison data={data} />
       <p className={styles.methodNote}>
-        Real standings use accepted official results only. Simulated standings use active stored
-        simulations only after their synchronized one-minute reveal has completed. Voided forecasts
-        are excluded from every table.
+        Real standings use accepted official results only. Your simulated standings count each
+        completed Play once. Missed and void schedule revisions never add games, goals, or points.
       </p>
     </>
   );

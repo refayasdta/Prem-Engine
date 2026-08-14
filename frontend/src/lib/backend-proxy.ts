@@ -37,18 +37,23 @@ export function resolveBackendConfiguration(
   };
 }
 
-export async function proxyBackend(path: string) {
-  const snapshot = await readPublicSnapshot(path);
+export async function proxyBackend(path: string, init: RequestInit = {}) {
+  const method = (init.method ?? "GET").toUpperCase();
+  const snapshot = method === "GET"
+    ? await readPublicSnapshot(path)
+    : { fresh: null, stale: null };
   if (snapshot.fresh) {
     return snapshotResponse(snapshot.fresh, false);
   }
   try {
     const { baseUrl, originToken } = resolveBackendConfiguration();
-    const requestHeaders = new Headers({ accept: "application/json" });
+    const requestHeaders = new Headers(init.headers);
+    requestHeaders.set("accept", "application/json");
     if (originToken) {
       requestHeaders.set("x-prem-engine-origin-token", originToken);
     }
     const response = await fetch(`${baseUrl}${path}`, {
+      ...init,
       cache: "no-store",
       headers: requestHeaders,
     });
@@ -71,7 +76,7 @@ export async function proxyBackend(path: string) {
         headers.set(name, value);
       }
     }
-    if (response.ok) {
+    if (response.ok && method === "GET") {
       const cacheSeconds = originCacheSeconds(path, body);
       headers.set(
         "cache-control",

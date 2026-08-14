@@ -37,6 +37,12 @@ export interface StandingsOverview {
     real_rows: StandingsRow[];
     simulated_rows: StandingsRow[];
   };
+  coverage: {
+    eligible: number;
+    played: number;
+    missed: number;
+    void: number;
+  };
 }
 
 export interface EvaluationMetrics {

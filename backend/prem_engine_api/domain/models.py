@@ -644,6 +644,7 @@ class StoredSimulation(Base):
     __table_args__ = (
         CheckConstraint("home_goals >= 0 AND away_goals >= 0", name="nonnegative_score"),
         CheckConstraint("presentation_duration_seconds > 0", name="positive_presentation_duration"),
+        CheckConstraint("simulation_scope = 'legacy_shared'", name="valid_simulation_scope"),
     )
 
     simulation_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
@@ -658,6 +659,95 @@ class StoredSimulation(Base):
     checksum: Mapped[str] = mapped_column(String(64))
     presentation_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     presentation_duration_seconds: Mapped[int] = mapped_column(SmallInteger, default=60)
+    simulation_scope: Mapped[str] = mapped_column(String(24), default="legacy_shared")
+
+
+class DeviceSimulation(Base, TimestampMixin):
+    """One immutable sampled timeline for a browser device and schedule revision."""
+
+    __tablename__ = "device_simulations"
+    __table_args__ = (
+        UniqueConstraint(
+            "device_uuid",
+            "match_uuid",
+            "schedule_revision_uuid",
+            name="uq_device_simulations_device_match_revision",
+        ),
+        CheckConstraint(
+            "state IN ('played', 'missed', 'void')", name="valid_state"
+        ),
+        CheckConstraint(
+            "play_classification IS NULL OR play_classification IN "
+            "('pre_kickoff_user_simulation', 'in_play_user_simulation')",
+            name="valid_play_classification",
+        ),
+        CheckConstraint(
+            "home_goals IS NULL OR home_goals >= 0", name="nonnegative_home_score"
+        ),
+        CheckConstraint(
+            "away_goals IS NULL OR away_goals >= 0", name="nonnegative_away_score"
+        ),
+        CheckConstraint(
+            "presentation_duration_seconds > 0",
+            name="positive_presentation_duration",
+        ),
+        CheckConstraint(
+            "(state = 'missed' AND generated_at IS NULL AND simulation_checksum IS NULL) "
+            "OR (state IN ('played', 'void'))",
+            name="missed_has_no_generated_simulation",
+        ),
+        Index("ix_device_simulations_device_created", "device_uuid", "created_at"),
+    )
+
+    device_simulation_uuid: Mapped[UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid4
+    )
+    device_uuid: Mapped[UUID] = mapped_column(Uuid, index=True)
+    match_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("matches.match_uuid", ondelete="CASCADE"), index=True
+    )
+    schedule_revision_uuid: Mapped[UUID] = mapped_column(
+        ForeignKey("fixture_schedule_revisions.revision_uuid", ondelete="RESTRICT"),
+        index=True,
+    )
+    schedule_revision_number: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(16), index=True)
+    play_classification: Mapped[str | None] = mapped_column(String(48))
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    missed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    void_reason: Mapped[str | None] = mapped_column(String(120))
+    feature_cutoff_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    latest_source_observed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    feature_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    feature_snapshot_checksum: Mapped[str | None] = mapped_column(String(64))
+    model_version: Mapped[str | None] = mapped_column(String(120))
+    statistics_model_version: Mapped[str | None] = mapped_column(String(120))
+    model_artifact_uuid: Mapped[UUID | None] = mapped_column(
+        ForeignKey("local_model_artifacts.artifact_uuid", ondelete="RESTRICT"), index=True
+    )
+    model_artifact_checksum: Mapped[str | None] = mapped_column(String(64))
+    expected_home_goals: Mapped[Decimal | None] = mapped_column(Numeric(7, 4))
+    expected_away_goals: Mapped[Decimal | None] = mapped_column(Numeric(7, 4))
+    home_win_probability: Mapped[Decimal | None] = mapped_column(Numeric(9, 8))
+    draw_probability: Mapped[Decimal | None] = mapped_column(Numeric(9, 8))
+    away_win_probability: Mapped[Decimal | None] = mapped_column(Numeric(9, 8))
+    statistics_distribution: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    expected_lineups: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    random_seed: Mapped[int | None] = mapped_column(Integer)
+    home_goals: Mapped[int | None] = mapped_column(SmallInteger)
+    away_goals: Mapped[int | None] = mapped_column(SmallInteger)
+    statistics: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    events: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    simulation_checksum: Mapped[str | None] = mapped_column(String(64))
+    presentation_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    presentation_duration_seconds: Mapped[int] = mapped_column(
+        SmallInteger, default=60
+    )
 
 
 class StandingsSnapshot(Base):

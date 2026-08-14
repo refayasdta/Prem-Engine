@@ -22,7 +22,7 @@ export default function ModelPage() {
             </p>
           </div>
           <aside className={styles.pageIntroAside} aria-label="OptiMatch Model rules">
-            <div><span>Forecast</span><strong>T-24 hours</strong></div>
+            <div><span>Evidence cutoff</span><strong>T-24 hours</strong></div>
             <div><span>Inputs</span><strong>Prior results only</strong></div>
             <div><span>Outputs</span><strong>Score probabilities</strong></div>
             <div><span>Version</span><strong>Locked per match</strong></div>
@@ -39,18 +39,18 @@ export default function ModelPage() {
           <div className={styles.methodGrid}>
             <article className={styles.methodCard}>
               <span>01 / Before kickoff</span>
-              <h3>Forecast at T-24</h3>
+              <h3>Freeze evidence at T-24</h3>
               <p>
-                The scheduled worker freezes the available evidence and creates the official
-                probabilities, expected lineup, score distribution, and statistics.
+                Play always uses evidence available before the T-24 cutoff, even if the user
+                presses Play after kickoff. Later match information cannot leak into the forecast.
               </p>
             </article>
             <article className={styles.methodCard}>
-              <span>02 / Stored once</span>
-              <h3>Reveal the simulation</h3>
+              <span>02 / Play once</span>
+              <h3>Generate your timeline</h3>
               <p>
-                Events and the final score already exist. The page only reveals that immutable
-                sequence over 60 seconds; there are no replay-speed or simulate controls.
+                The first valid Play creates one device-specific result for the current schedule.
+                Refreshes, retries, and restarts return that same stored 60-second presentation.
               </p>
             </article>
             <article className={styles.methodCard}>

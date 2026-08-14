@@ -1,9 +1,9 @@
 # Prem Engine
 
-Prem Engine is an autonomous Premier League forecasting and simulation platform.
-It publishes one probabilistic forecast and one stored quick-match simulation for
-each fixture, then compares them with the real result. Simulated and real-world
-standings are maintained separately.
+Prem Engine is a local Premier League forecasting and simulation platform. Each browser creates
+one device-specific saved simulation per fixture schedule revision when its user presses Play,
+then compares that timeline with the real result. Simulated and real-world standings remain
+separate.
 
 ## Cloneable local quick start
 
@@ -42,15 +42,21 @@ docker compose down -v
 > preserve the named volumes.
 
 The local transition is being delivered in bounded milestones. The foundation Compose topology,
-safe unconfigured startup, audited synchronization, and chronological Phase 7 catch-up training are
-implemented. Per-device Play, local operations, and hosted-code removal follow the acceptance
-sequence in [the cloneable local architecture](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md).
+safe unconfigured startup, audited synchronization, chronological Phase 7 catch-up training, and
+per-device Play lifecycle are implemented. Local operations and hosted-code removal follow the
+acceptance sequence in [the cloneable local architecture](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md).
 
 Completed matchweeks are refitted in order using the approved Phase 7 configuration and all
 eligible historical plus current-season results known at the cutoff. Postponed fixtures do not
 block later matchweeks. Corrections and replayed fixtures create new immutable cutoff revisions;
 the previous verified model remains active until the replacement artifact and provenance checksums
 have been persisted successfully.
+
+Play unlocks exactly 24 hours before the current canonical kickoff and remains available through
+exactly 45 minutes after kickoff. The backend enforces that inclusive window, fixture freshness,
+and current schedule revision. A random browser-local UUID partitions simulations, standings, and
+evaluation without fingerprinting. Repeated or concurrent Play calls return the same stored result;
+missed and void revisions never add games, goals, or points.
 
 ## Project status
 
@@ -179,7 +185,7 @@ Open `http://localhost:3000/simulation-preview`. Play, pause, seek, and restart
 the fixed one-minute replay. Refreshing the page loads the same seed and checksum,
 so it cannot silently produce a different match.
 
-## Phase 14 automatic lifecycle
+## Phase 14 automatic lifecycle (retained historical workflow)
 
 After applying migrations and configuring the two approved artifact paths, run
 one local dispatcher cycle with:
@@ -188,12 +194,14 @@ one local dispatcher cycle with:
 .\scripts\run-forecast-dispatcher.ps1
 ```
 
-Production scheduling will invoke the same one-shot command every minute. A
+The hosted design invoked the same one-shot command every minute. A
 cycle creates any missing current-revision jobs, leases a bounded due batch, and
 generates each complete prediction transactionally. It also consumes the queued
 simulated-standings recalculation after the stored presentation becomes fully
 revealable. The browser reads
-`GET /api/matches/{match_uuid}/forecast`; users never press a simulate button.
+`GET /api/matches/{match_uuid}/forecast`. The active local product replaces that automatic shared
+path with device-scoped `GET /api/matches/{match_uuid}/forecast?device_uuid=...` and
+`POST /api/matches/{match_uuid}/play`; old shared simulations remain read-only audit records.
 
 Refresh current squads, availability, transfers, confirmed lineups, and
 post-match player performances with a quota-bounded cycle:

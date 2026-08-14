@@ -9,7 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -19,6 +19,8 @@ from prem_engine_api.domain.enums import FixtureStatus, PredictionState, ResultK
 from prem_engine_api.domain.models import (
     ActualResultRevision,
     Club,
+    DeviceSimulation,
+    FixtureScheduleRevision,
     Match,
     PredictionVersion,
     Season,
@@ -74,12 +76,20 @@ class FairComparisonResponse(BaseModel):
     simulated_rows: list[StandingsRowResponse]
 
 
+class SimulationCoverageResponse(BaseModel):
+    eligible: int
+    played: int
+    missed: int
+    void: int
+
+
 class StandingsOverviewResponse(BaseModel):
     season: SeasonResponse | None
     calculated_at: datetime
     real: StandingsTableResponse
     simulated: StandingsTableResponse
     fair_comparison: FairComparisonResponse
+    coverage: SimulationCoverageResponse
 
 
 class EvaluationMetricsResponse(BaseModel):
@@ -212,6 +222,7 @@ def _empty_standings(*, now: datetime) -> StandingsOverviewResponse:
         fair_comparison=FairComparisonResponse(
             source_fixture_count=0, real_rows=[], simulated_rows=[]
         ),
+        coverage=SimulationCoverageResponse(eligible=0, played=0, missed=0, void=0),
     )
 
 
@@ -219,6 +230,7 @@ async def build_standings_overview(
     session: AsyncSession,
     *,
     season_uuid: UUID | None = None,
+    device_uuid: UUID | None = None,
     now: datetime,
 ) -> StandingsOverviewResponse:
     season = await _resolve_season(session, season_uuid=season_uuid, today=now.date())
@@ -269,36 +281,110 @@ async def build_standings_overview(
         for match, result in real_records
     }
 
-    simulation_records = (
-        await session.execute(
-            select(Match, StoredSimulation)
-            .join(PredictionVersion, PredictionVersion.match_uuid == Match.match_uuid)
-            .join(
-                StoredSimulation,
-                StoredSimulation.prediction_version_uuid
-                == PredictionVersion.prediction_version_uuid,
+    if device_uuid is None:
+        simulation_records = (
+            await session.execute(
+                select(Match, StoredSimulation)
+                .join(PredictionVersion, PredictionVersion.match_uuid == Match.match_uuid)
+                .join(
+                    StoredSimulation,
+                    StoredSimulation.prediction_version_uuid
+                    == PredictionVersion.prediction_version_uuid,
+                )
+                .where(
+                    Match.season_uuid == season.season_uuid,
+                    PredictionVersion.state.in_(
+                        (PredictionState.ACTIVE_LOCKED, PredictionState.EVALUATED)
+                    ),
+                )
             )
-            .where(
-                Match.season_uuid == season.season_uuid,
-                PredictionVersion.state.in_(
-                    (PredictionState.ACTIVE_LOCKED, PredictionState.EVALUATED)
-                ),
+        ).all()
+        simulated_scores = {
+            match.match_uuid: MatchScore(
+                match_uuid=match.match_uuid,
+                home_club_uuid=match.home_club_uuid,
+                away_club_uuid=match.away_club_uuid,
+                home_goals=simulation.home_goals,
+                away_goals=simulation.away_goals,
+            )
+            for match, simulation in simulation_records
+            if now
+            >= simulation.presentation_started_at
+            + timedelta(seconds=simulation.presentation_duration_seconds)
+        }
+        coverage = SimulationCoverageResponse(
+            eligible=len(simulated_scores),
+            played=len(simulated_scores),
+            missed=0,
+            void=0,
+        )
+    else:
+        device_records = (
+            await session.execute(
+                select(Match, DeviceSimulation)
+                .join(
+                    DeviceSimulation,
+                    DeviceSimulation.match_uuid == Match.match_uuid,
+                )
+                .join(
+                    FixtureScheduleRevision,
+                    FixtureScheduleRevision.revision_uuid
+                    == DeviceSimulation.schedule_revision_uuid,
+                )
+                .where(
+                    Match.season_uuid == season.season_uuid,
+                    DeviceSimulation.device_uuid == device_uuid,
+                    DeviceSimulation.state == "played",
+                    FixtureScheduleRevision.superseded_at.is_(None),
+                )
+            )
+        ).all()
+        simulated_scores = {
+            match.match_uuid: MatchScore(
+                match_uuid=match.match_uuid,
+                home_club_uuid=match.home_club_uuid,
+                away_club_uuid=match.away_club_uuid,
+                home_goals=int(simulation.home_goals or 0),
+                away_goals=int(simulation.away_goals or 0),
+            )
+            for match, simulation in device_records
+        }
+        closed_match_ids = set(
+            await session.scalars(
+                select(Match.match_uuid)
+                .join(
+                    FixtureScheduleRevision,
+                    FixtureScheduleRevision.match_uuid == Match.match_uuid,
+                )
+                .where(
+                    Match.season_uuid == season.season_uuid,
+                    FixtureScheduleRevision.superseded_at.is_(None),
+                    FixtureScheduleRevision.kickoff_at < now - timedelta(minutes=45),
+                    FixtureScheduleRevision.canonical_status.not_in(
+                        (FixtureStatus.POSTPONED, FixtureStatus.CANCELLED)
+                    ),
+                )
             )
         )
-    ).all()
-    simulated_scores = {
-        match.match_uuid: MatchScore(
-            match_uuid=match.match_uuid,
-            home_club_uuid=match.home_club_uuid,
-            away_club_uuid=match.away_club_uuid,
-            home_goals=simulation.home_goals,
-            away_goals=simulation.away_goals,
+        played_match_ids = set(simulated_scores)
+        void_count = int(
+            await session.scalar(
+                select(func.count(DeviceSimulation.device_simulation_uuid))
+                .join(Match, Match.match_uuid == DeviceSimulation.match_uuid)
+                .where(
+                    Match.season_uuid == season.season_uuid,
+                    DeviceSimulation.device_uuid == device_uuid,
+                    DeviceSimulation.state == "void",
+                )
+            )
+            or 0
         )
-        for match, simulation in simulation_records
-        if now
-        >= simulation.presentation_started_at
-        + timedelta(seconds=simulation.presentation_duration_seconds)
-    }
+        coverage = SimulationCoverageResponse(
+            eligible=len(closed_match_ids | played_match_ids),
+            played=len(played_match_ids),
+            missed=len(closed_match_ids - played_match_ids),
+            void=void_count,
+        )
     fair_match_ids = real_scores.keys() & simulated_scores.keys()
     real_rows = calculate_standings(club_names, real_scores.values())
     simulated_rows = calculate_standings(club_names, simulated_scores.values())
@@ -328,6 +414,7 @@ async def build_standings_overview(
             real_rows=_standings_rows(fair_real_rows, clubs),
             simulated_rows=_standings_rows(fair_simulated_rows, clubs),
         ),
+        coverage=coverage,
     )
 
 
@@ -358,6 +445,7 @@ async def build_evaluation_overview(
     session: AsyncSession,
     *,
     season_uuid: UUID | None = None,
+    device_uuid: UUID | None = None,
     now: datetime,
 ) -> EvaluationOverviewResponse:
     season = await _resolve_season(session, season_uuid=season_uuid, today=now.date())
@@ -368,6 +456,14 @@ async def build_evaluation_overview(
             paired_fixture_count=0,
             metrics=_empty_metrics(),
             matches=[],
+        )
+
+    if device_uuid is not None:
+        return await _build_device_evaluation_overview(
+            session,
+            season=season,
+            device_uuid=device_uuid,
+            now=now,
         )
 
     home_club = aliased(Club)
@@ -460,17 +556,127 @@ async def build_evaluation_overview(
     )
 
 
+async def _build_device_evaluation_overview(
+    session: AsyncSession,
+    *,
+    season: Season,
+    device_uuid: UUID,
+    now: datetime,
+) -> EvaluationOverviewResponse:
+    home_club = aliased(Club)
+    away_club = aliased(Club)
+    records = (
+        await session.execute(
+            select(
+                Match,
+                home_club,
+                away_club,
+                DeviceSimulation,
+                ActualResultRevision,
+            )
+            .join(home_club, home_club.club_uuid == Match.home_club_uuid)
+            .join(away_club, away_club.club_uuid == Match.away_club_uuid)
+            .join(DeviceSimulation, DeviceSimulation.match_uuid == Match.match_uuid)
+            .join(ActualResultRevision, ActualResultRevision.match_uuid == Match.match_uuid)
+            .where(
+                Match.season_uuid == season.season_uuid,
+                DeviceSimulation.device_uuid == device_uuid,
+                DeviceSimulation.state == "played",
+                DeviceSimulation.model_version.is_not(None),
+                DeviceSimulation.home_win_probability.is_not(None),
+                DeviceSimulation.draw_probability.is_not(None),
+                DeviceSimulation.away_win_probability.is_not(None),
+                DeviceSimulation.expected_home_goals.is_not(None),
+                DeviceSimulation.expected_away_goals.is_not(None),
+                DeviceSimulation.home_goals.is_not(None),
+                DeviceSimulation.away_goals.is_not(None),
+                ActualResultRevision.accepted.is_(True),
+                Match.status.in_(
+                    (FixtureStatus.FINISHED, FixtureStatus.ABANDONED, FixtureStatus.AWARDED)
+                ),
+            )
+            .order_by(Match.current_kickoff_at.desc(), Match.match_uuid)
+        )
+    ).all()
+    inputs = tuple(
+        ForecastEvaluationInput(
+            match_uuid=match.match_uuid,
+            home_probability=float(simulation.home_win_probability or 0),
+            draw_probability=float(simulation.draw_probability or 0),
+            away_probability=float(simulation.away_win_probability or 0),
+            expected_home_goals=float(simulation.expected_home_goals or 0),
+            expected_away_goals=float(simulation.expected_away_goals or 0),
+            simulated_home_goals=int(simulation.home_goals or 0),
+            simulated_away_goals=int(simulation.away_goals or 0),
+            actual_home_goals=result.home_goals,
+            actual_away_goals=result.away_goals,
+            excluded_from_aggregate=result.result_kind is ResultKind.AWARDED,
+        )
+        for match, _, _, simulation, result in records
+    )
+    metrics, evaluated = aggregate_evaluations(inputs)
+    evaluated_by_match = {item.match_uuid: item for item in evaluated}
+    matches = []
+    for match, home, away, simulation, result in records:
+        item = evaluated_by_match[match.match_uuid]
+        matches.append(
+            MatchEvaluationResponse(
+                match_uuid=match.match_uuid,
+                kickoff_at=match.current_kickoff_at,
+                home=_club_response(home),
+                away=_club_response(away),
+                model_version=simulation.model_version or "unknown",
+                home_win_probability=simulation.home_win_probability or Decimal("0"),
+                draw_probability=simulation.draw_probability or Decimal("0"),
+                away_win_probability=simulation.away_win_probability or Decimal("0"),
+                expected_home_goals=simulation.expected_home_goals or Decimal("0"),
+                expected_away_goals=simulation.expected_away_goals or Decimal("0"),
+                simulated_home_goals=int(simulation.home_goals or 0),
+                simulated_away_goals=int(simulation.away_goals or 0),
+                actual_home_goals=result.home_goals,
+                actual_away_goals=result.away_goals,
+                actual_outcome=item.actual_outcome,
+                forecast_outcome=item.forecast_outcome,
+                simulation_outcome=item.simulation_outcome,
+                forecast_outcome_correct=item.forecast_outcome_correct,
+                simulation_outcome_correct=item.simulation_outcome_correct,
+                exact_simulated_score_correct=item.exact_simulated_score_correct,
+                result_kind=result.result_kind.value,
+                included_in_aggregate=not item.excluded_from_aggregate,
+            )
+        )
+    return EvaluationOverviewResponse(
+        season=_season_response(season),
+        calculated_at=now,
+        paired_fixture_count=len(records),
+        metrics=_metrics_response(metrics),
+        matches=matches,
+    )
+
+
 @router.get("/standings", response_model=StandingsOverviewResponse)
 async def standings(
     session: Annotated[AsyncSession, Depends(get_db_session)],
+    device_uuid: Annotated[UUID, Query()],
     season_uuid: Annotated[UUID | None, Query()] = None,
 ) -> StandingsOverviewResponse:
-    return await build_standings_overview(session, season_uuid=season_uuid, now=datetime.now(UTC))
+    return await build_standings_overview(
+        session,
+        season_uuid=season_uuid,
+        device_uuid=device_uuid,
+        now=datetime.now(UTC),
+    )
 
 
 @router.get("/evaluation", response_model=EvaluationOverviewResponse)
 async def evaluation(
     session: Annotated[AsyncSession, Depends(get_db_session)],
+    device_uuid: Annotated[UUID, Query()],
     season_uuid: Annotated[UUID | None, Query()] = None,
 ) -> EvaluationOverviewResponse:
-    return await build_evaluation_overview(session, season_uuid=season_uuid, now=datetime.now(UTC))
+    return await build_evaluation_overview(
+        session,
+        season_uuid=season_uuid,
+        device_uuid=device_uuid,
+        now=datetime.now(UTC),
+    )

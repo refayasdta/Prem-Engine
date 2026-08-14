@@ -5,7 +5,7 @@ import product from "../product.module.css";
 
 export const metadata: Metadata = {
   title: "Evaluation",
-  description: "See how Prem Engine's locked Premier League forecasts compare with accepted real results.",
+  description: "See how this device's saved Premier League simulations compare with accepted real results.",
 };
 
 export default function EvaluationPage() {
@@ -17,12 +17,12 @@ export default function EvaluationPage() {
             <p className={product.eyebrow}>No hidden misses</p>
             <h1>Evaluation</h1>
             <p>
-              A live, season-level account of the official OptiMatch Model forecast. Probability
+              A live, season-level account of this device’s saved OptiMatch forecasts. Probability
               quality, result accuracy, score error, and every evaluated fixture remain visible.
             </p>
           </div>
           <aside className={product.pageIntroAside} aria-label="Evaluation rules">
-            <div><span>Forecast</span><strong>Locked at T-24</strong></div>
+            <div><span>Evidence</span><strong>Cut off at T-24</strong></div>
             <div><span>Actual</span><strong>Accepted result</strong></div>
             <div><span>Awarded match</span><strong>Shown, excluded</strong></div>
             <div><span>Benchmark</span><strong>OptiMatch Model</strong></div>

@@ -16,7 +16,12 @@ const SECOND = 1_000;
 export function forecastPollInterval(
   lifecycleState: MatchForecast["lifecycle_state"] | null,
 ) {
-  if (lifecycleState === "complete" || lifecycleState === "cancelled") {
+  if (
+    lifecycleState === "complete" ||
+    lifecycleState === "cancelled" ||
+    lifecycleState === "missed" ||
+    lifecycleState === "void"
+  ) {
     return null;
   }
   if (lifecycleState === "live") {
@@ -41,6 +46,17 @@ function errorMessage(payload: unknown) {
   ) {
     return payload.detail;
   }
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "detail" in payload &&
+    typeof payload.detail === "object" &&
+    payload.detail !== null &&
+    "message" in payload.detail &&
+    typeof payload.detail.message === "string"
+  ) {
+    return payload.detail.message;
+  }
   return "Match forecast is unavailable.";
 }
 
@@ -50,6 +66,7 @@ function errorMessage(payload: unknown) {
  */
 export function subscribeOfficialForecast(
   matchUuid: string,
+  deviceUuid: string,
   handlers: ForecastPollHandlers,
 ) {
   let active = true;
@@ -84,7 +101,7 @@ export function subscribeOfficialForecast(
       if (wait === null) return;
       try {
         const response = await fetch(
-          `/api/matches/${encodeURIComponent(matchUuid)}/forecast`,
+          `/api/matches/${encodeURIComponent(matchUuid)}/forecast?device_uuid=${encodeURIComponent(deviceUuid)}`,
           { cache: "no-store" },
         );
         const payload: unknown = await response.json();

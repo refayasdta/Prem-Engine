@@ -160,12 +160,40 @@ services:
       retries: 12
       start_period: 10s
     ports:
-      - "${PREM_ENGINE_HOST_BIND:-0.0.0.0}:${PREM_ENGINE_FRONTEND_PORT:-3000}:3000"
+      - "${PREM_ENGINE_HOST_BIND:-127.0.0.1}:${PREM_ENGINE_FRONTEND_PORT:-3000}:3000"
     networks:
       - application
       - edge
     restart: unless-stopped
     init: true
+
+  operations:
+    build:
+      context: .
+      dockerfile: operations/Dockerfile
+    profiles: ["operations"]
+    environment:
+      POSTGRES_DB: prem_engine
+      POSTGRES_USER: prem_engine
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prem_engine_local}
+      POSTGRES_HOST: postgres
+      PREM_ENGINE_RELEASE: ${PREM_ENGINE_RELEASE:-uncommitted}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-prem_engine_local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+      - prem_engine_local_models:/models
+    networks:
+      - application
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   prem_engine_postgres:

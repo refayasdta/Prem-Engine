@@ -18,7 +18,8 @@ docker compose up --build
 
 Open `http://localhost:3000`. PostgreSQL, migrations, idempotent initialization, FastAPI, the
 production Next.js server, and the local worker all run inside Compose. PostgreSQL is not published
-to the host or LAN.
+to the host or LAN. The frontend defaults to host-only `127.0.0.1`; trusted-LAN mobile access is an
+explicit opt-in.
 
 The application starts without a provider key and shows a setup-required state. To enable current
 fixture synchronization, copy `.env.example` to the ignored `.env` file, set `KICKOFF_API_KEY`, and
@@ -41,9 +42,17 @@ docker compose down -v
 > locally trained model artifacts. Ordinary `down`, restart, rebuild, and host reboot operations
 > preserve the named volumes.
 
+Docker-only backup, isolated restore verification, disaster restore, diagnostics, logs, disk-use,
+offline recovery, and optional mobile-LAN instructions are in the
+[local operations runbook](docs/deployment/LOCAL_OPERATIONS.md). A typical diagnostic is:
+
+```powershell
+docker compose --profile operations run --rm operations diagnostics
+```
+
 The local transition is being delivered in bounded milestones. The foundation Compose topology,
 safe unconfigured startup, audited synchronization, chronological Phase 7 catch-up training, and
-per-device Play lifecycle are implemented. Local operations and hosted-code removal follow the
+per-device Play lifecycle and local operations are implemented. Hosted-code removal follows the
 acceptance sequence in [the cloneable local architecture](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md).
 
 Completed matchweeks are refitted in order using the approved Phase 7 configuration and all

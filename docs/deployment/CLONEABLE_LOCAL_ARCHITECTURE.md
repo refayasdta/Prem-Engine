@@ -345,17 +345,18 @@ kickoff.
 The first cloneable edition runs on a desktop host. A mobile user can access it when the phone and
 host are on the same local network.
 
-The frontend must bind to an address reachable from the LAN and display or document a URL similar
-to:
+The frontend binds to loopback by default so cloning and starting the stack does not silently expose
+the application to other devices. A trusted-LAN operator may explicitly opt in to a LAN-reachable
+bind and use or document a URL similar to:
 
 ```text
 http://192.168.1.20:3000
 ```
 
-`localhost` on a phone refers to the phone, not the desktop. LAN access requires the host firewall
-to permit the selected port and the router not to isolate clients. The local application must
-restrict allowed origins and exposed ports appropriately; PostgreSQL must not be exposed to the
-LAN by default.
+`localhost` on a phone refers to the phone, not the desktop. LAN access requires the operator to set
+the documented host-bind override, permit the selected port through the host's private-network
+firewall, and use a router that does not isolate clients. Only the frontend is published; PostgreSQL,
+the API, the worker, and operational tooling remain confined to the Compose networks.
 
 The mobile browser receives its own device UUID and therefore its own saved simulation season.
 The host computer, Docker services, and local network must remain available while the phone is in
@@ -452,6 +453,17 @@ cover the replacement lifecycle.
 - Restrict network exposure and document firewall/LAN access.
 - Complete desktop and mobile-browser acceptance testing.
 - Verify clean offline shutdown and correct startup recovery.
+
+Implemented in the Stage 5 checkpoint on 2026-08-18. Compose now publishes the frontend on
+`127.0.0.1` by default and supports an explicit trusted-LAN bind override. A profile-gated,
+unpublished operations container supplies diagnostics plus consistent database/model backup,
+isolated verification, and confirmation-gated restore commands. The runbook covers health, logs,
+disk use, shutdown, restart, offline recovery, upgrade, Windows private-firewall setup, and removal
+of LAN access. A real backup, isolated verification, destructive same-state restore rehearsal, and
+post-restore worker recovery reproduced critical data and left all services healthy. Desktop and
+390-by-844 responsive browser checks passed without page-level horizontal overflow or UI errors.
+Physical Android Chrome and iOS Safari LAN checks remain an explicit manual release gate because
+desktop emulation cannot prove device, router, or mobile-browser behaviour.
 
 ### Stage 6: remove obsolete implementation
 

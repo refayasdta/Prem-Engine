@@ -335,13 +335,25 @@ async def test_player_context_ingestion_populates_canonical_lineup_inputs(
                         "out": {"id": "tm_home"},
                         "in": {"id": "tm_away"},
                     },
-                }
+                },
+                {
+                    "id": "placeholder-no-date",
+                    "date": None,
+                    "player": {"id": None, "name": None},
+                },
+                {
+                    "id": "placeholder-no-player",
+                    "date": "2026-08-12",
+                    "player": {"id": None, "name": None},
+                },
             ]
         },
         observed_at=now,
         provider_payload_key="raw-2",
     )
     assert transfer.created == 1
+    assert transfer.received == 3
+    assert transfer.unresolved == 2
 
     lineup = await ingestor.ingest_lineups(
         {

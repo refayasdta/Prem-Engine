@@ -285,8 +285,33 @@ class PlayerContextIngestor:
     async def ingest_transfers(
         self, payload: object, *, observed_at: datetime, provider_payload_key: str
     ) -> PlayerContextIngestionSummary:
-        envelope = TransferEnvelope.model_validate(payload)
-        created = unchanged = unresolved = 0
+        received = 0
+        placeholder_rows = 0
+        normalized_payload = payload
+        if isinstance(payload, dict) and isinstance(payload.get("data"), list):
+            received = len(payload["data"])
+            usable_rows: list[object] = []
+            for row in payload["data"]:
+                if not isinstance(row, dict):
+                    usable_rows.append(row)
+                    continue
+                player = row.get("player")
+                nested_player_id = player.get("id") if isinstance(player, dict) else None
+                flat_player_id = row.get("playerId")
+                if row.get("date") is None or (
+                    nested_player_id is None and flat_player_id is None
+                ):
+                    placeholder_rows += 1
+                    continue
+                if nested_player_id is None and flat_player_id is not None:
+                    row = {key: value for key, value in row.items() if key != "player"}
+                usable_rows.append(row)
+            normalized_payload = {**payload, "data": usable_rows}
+        envelope = TransferEnvelope.model_validate(normalized_payload)
+        if received == 0:
+            received = len(envelope.data)
+        created = unchanged = 0
+        unresolved = placeholder_rows
         for index, transfer in enumerate(envelope.data):
             try:
                 player = await self._player(transfer.normalized_player, observed_at)
@@ -325,7 +350,7 @@ class PlayerContextIngestor:
             )
             created += 1
         await self._session.flush()
-        return PlayerContextIngestionSummary(len(envelope.data), created, 0, unchanged, unresolved)
+        return PlayerContextIngestionSummary(received, created, 0, unchanged, unresolved)
 
     async def ingest_lineups(
         self,

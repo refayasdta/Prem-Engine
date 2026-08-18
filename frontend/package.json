@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --experimental-strip-types --test src/lib/rate-limit.test.ts src/lib/official-forecast-poller.test.ts src/lib/backend-proxy.test.ts src/lib/public-snapshot.test.ts src/lib/countdown.test.ts src/lib/device-identity.test.ts src/lib/site-url.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/rate-limit.test.ts src/lib/official-forecast-poller.test.ts src/lib/backend-proxy.test.ts src/lib/public-snapshot.test.ts src/lib/countdown.test.ts src/lib/device-identity.test.ts src/lib/presentation-clock.test.ts src/lib/site-url.test.ts",
     "lint": "eslint src next.config.ts eslint.config.mjs postcss.config.mjs --max-warnings=0",
     "typecheck": "tsc --noEmit"
   },

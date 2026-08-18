@@ -12,6 +12,7 @@ import type {
   TeamSide,
 } from "@/lib/forecast-types";
 import { subscribeOfficialForecast } from "@/lib/official-forecast-poller";
+import { presentationClockAt } from "@/lib/presentation-clock";
 import styles from "./match.module.css";
 
 const STATISTICS = [
@@ -128,24 +129,50 @@ function WaitingState({
           ? "SYNC REQUIRED"
           : title;
 
+  const content = (
+    <>
+      <p className={styles.eyebrow}>{data.lifecycle_state}</p>
+      <h2 role={data.lifecycle_state === "locked" ? "timer" : undefined}>{stateTitle}</h2>
+      <p>{messages[data.lifecycle_state]}</p>
+      {data.lifecycle_state === "available" ? (
+        <span className={styles.playButton} aria-hidden="true">
+          {playing ? "Generating…" : "Play simulation"}
+        </span>
+      ) : null}
+      <small>
+        Play window: {new Date(data.window_opens_at ?? data.prediction_due_at).toLocaleString("en-GB")}
+        {data.window_closes_at ? ` – ${new Date(data.window_closes_at).toLocaleString("en-GB")}` : ""}
+      </small>
+    </>
+  );
+
+  if (data.lifecycle_state === "available") {
+    return (
+      <section
+        className={`${styles.waiting} ${styles.playCard} ${playing ? styles.playCardBusy : ""}`}
+        role="status"
+        aria-live="polite"
+        aria-busy={playing}
+      >
+        <button
+          className={styles.playCardTarget}
+          type="button"
+          disabled={playing}
+          onClick={onPlay}
+          aria-label={playing ? "Generating simulation" : "Play simulation"}
+        />
+        {content}
+      </section>
+    );
+  }
+
   return (
     <section
       className={styles.waiting}
       role="status"
       aria-live={data.lifecycle_state === "locked" ? "off" : "polite"}
     >
-      <p className={styles.eyebrow}>{data.lifecycle_state}</p>
-      <h2 role={data.lifecycle_state === "locked" ? "timer" : undefined}>{stateTitle}</h2>
-      <p>{messages[data.lifecycle_state]}</p>
-      {data.lifecycle_state === "available" ? (
-        <button className={styles.playButton} type="button" disabled={playing} onClick={onPlay}>
-          {playing ? "Generating…" : "Play simulation"}
-        </button>
-      ) : null}
-      <small>
-        Play window: {new Date(data.window_opens_at ?? data.prediction_due_at).toLocaleString("en-GB")}
-        {data.window_closes_at ? ` – ${new Date(data.window_closes_at).toLocaleString("en-GB")}` : ""}
-      </small>
+      {content}
     </section>
   );
 }
@@ -157,6 +184,7 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
     typeof window === "undefined" ? null : getOrCreateDeviceUuid()
   );
   const [playing, setPlaying] = useState(false);
+  const [presentationNow, setPresentationNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!deviceUuid) return;
@@ -168,6 +196,14 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
       onError: setError,
     });
   }, [deviceUuid, matchUuid]);
+
+  useEffect(() => {
+    if (!data?.simulation || data.presentation.complete) return;
+    const updateClock = () => setPresentationNow(Date.now());
+    updateClock();
+    const timer = window.setInterval(updateClock, 100);
+    return () => window.clearInterval(timer);
+  }, [data?.presentation.complete, data?.presentation.started_at, data?.simulation]);
 
   async function play() {
     if (!deviceUuid || playing) return;
@@ -222,12 +258,16 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
 
   const simulation = data.simulation;
   const prediction = data.prediction;
-  const footballMinute = Math.min(90, Math.floor(data.presentation.football_second / 60));
-  const phaseLabel = data.presentation.complete
+  const smoothClock = presentationClockAt(data.presentation, presentationNow);
+  const footballMinute = Math.min(90, Math.floor(smoothClock.footballSecond / 60));
+  const footballSecond = smoothClock.footballSecond % 60;
+  const phaseLabel = smoothClock.complete
     ? "FULL TIME"
-    : data.presentation.phase === "half_time"
+    : smoothClock.phase === "half_time"
       ? "HALF TIME"
-      : `${footballMinute.toString().padStart(2, "0")}:00`;
+      : `${footballMinute.toString().padStart(2, "0")}:${footballSecond
+        .toString()
+        .padStart(2, "0")}`;
 
   return (
     <main className={styles.shell} id="main-content">

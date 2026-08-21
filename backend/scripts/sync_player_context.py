@@ -12,6 +12,7 @@ from prem_engine_api.db.session import create_engine, create_session_factory
 from prem_engine_api.domain.models import CompetitionExternalReference, Season
 from prem_engine_api.ingestion.player_sync import sync_player_context
 from prem_engine_api.observability import configure_observability
+from prem_engine_api.providers.current_fpl.client import CurrentFplClient
 from prem_engine_api.providers.kickoffapi.client import KickoffApiClient
 from prem_engine_api.providers.raw_storage import create_raw_response_store
 from sqlalchemy import select
@@ -60,13 +61,21 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
             raise SystemExit(
                 "canonical season not found; import the fixture season before player context"
             )
-        async with KickoffApiClient(
-            settings=settings,
-            session_factory=sessions,
-            raw_store=raw_store,
-        ) as client:
+        async with (
+            KickoffApiClient(
+                settings=settings,
+                session_factory=sessions,
+                raw_store=raw_store,
+            ) as client,
+            CurrentFplClient(
+                settings=settings,
+                session_factory=sessions,
+                raw_store=raw_store,
+            ) as fpl_client,
+        ):
             outcome = await sync_player_context(
                 client=client,
+                fpl_client=fpl_client,
                 session_factory=sessions,
                 season_uuid=season.season_uuid,
                 league=args.league,

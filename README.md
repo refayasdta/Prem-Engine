@@ -221,7 +221,10 @@ post-match player performances with a quota-bounded cycle:
 
 The default uses no more than 16 KickoffAPI requests and is intended for one
 daily scheduler invocation. See the operational-hardening guide for its request
-distribution and the independent daily and rolling-minute safeguards.
+distribution and the independent daily and rolling-minute safeguards. KickoffAPI remains the
+primary squad source. If a requested squad has fewer than 15 active candidates or no identified
+goalkeeper, the cycle captures one official FPL bootstrap snapshot and imports only the affected
+clubs. That fallback has a separate four-request operational and eight-request hard daily ceiling.
 
 ## Phase 15 tactical workflow
 

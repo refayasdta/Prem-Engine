@@ -61,6 +61,12 @@ per normal cycle, all 20 league
 squads can be refreshed over two daily cycles. HTTP 404 coverage gaps are captured, counted, and do
 not prevent the remaining targets from running.
 
+For a requested club that remains below 15 active players or lacks an identified goalkeeper,
+KickoffAPI stays primary and the official current FPL bootstrap becomes a fallback. One validated
+snapshot is reused for every affected club in that cycle; unrelated FPL clubs are not normalized.
+The request and raw response are recorded under the separate `fpl-current` provider identity. Its
+database-coordinated limits default to four requests per UTC day operationally and eight hard.
+
 KickoffAPI enforcement now has two local controls:
 
 - 85 requests per UTC day out of the provider's 100-request allowance; and

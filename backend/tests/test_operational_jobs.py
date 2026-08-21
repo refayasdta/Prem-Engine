@@ -29,7 +29,7 @@ from prem_engine_api.domain.models import (
     TransferObservation,
 )
 from prem_engine_api.ingestion.player_context import PlayerContextIngestor
-from prem_engine_api.ingestion.player_sync import _next_cursor
+from prem_engine_api.ingestion.player_sync import _club_targets, _next_cursor
 from prem_engine_api.jobs.dispatcher import dispatch_once
 from prem_engine_api.jobs.leases import complete_job
 from prem_engine_api.jobs.standings import recalculate_simulated_standings
@@ -100,6 +100,59 @@ def test_player_context_cursor_is_tolerant_and_explicit() -> None:
     assert _next_cursor({"meta": {"next_cursor": 3}}) == "3"
     assert _next_cursor({"meta": {"nextCursor": None}}) is None
     assert _next_cursor([]) is None
+
+
+@pytest.mark.asyncio
+async def test_player_sync_prioritizes_unsynchronized_clubs_in_next_fixture(
+    db_session: AsyncSession,
+) -> None:
+    season, home, away, match, now = await _season_and_match(db_session)
+    match.status = FixtureStatus.SCHEDULED
+    match.current_kickoff_at = now + timedelta(hours=18)
+    match.prediction_due_at = match.current_kickoff_at - timedelta(days=1)
+    later_home = Club(canonical_name="Later Home", short_name="LTH")
+    later_away = Club(canonical_name="Later Away", short_name="LTA")
+    db_session.add_all((later_home, later_away))
+    await db_session.flush()
+    db_session.add_all(
+        (
+            SeasonClub(season_uuid=season.season_uuid, club_uuid=later_home.club_uuid),
+            SeasonClub(season_uuid=season.season_uuid, club_uuid=later_away.club_uuid),
+            ClubExternalReference(
+                club_uuid=later_home.club_uuid,
+                provider="kickoffapi",
+                external_club_id="tm_later_home",
+                observed_from=now,
+            ),
+            ClubExternalReference(
+                club_uuid=later_away.club_uuid,
+                provider="kickoffapi",
+                external_club_id="tm_later_away",
+                observed_from=now,
+            ),
+            Match(
+                season_uuid=season.season_uuid,
+                home_club_uuid=later_home.club_uuid,
+                away_club_uuid=later_away.club_uuid,
+                status=FixtureStatus.SCHEDULED,
+                current_kickoff_at=now + timedelta(days=2),
+                prediction_due_at=now + timedelta(days=1),
+            ),
+        )
+    )
+    await db_session.flush()
+
+    targets = await _club_targets(
+        db_session,
+        season_uuid=season.season_uuid,
+        limit=2,
+        now=now,
+    )
+
+    assert set(targets) == {
+        (home.club_uuid, "tm_home"),
+        (away.club_uuid, "tm_away"),
+    }
 
 
 @pytest.mark.asyncio

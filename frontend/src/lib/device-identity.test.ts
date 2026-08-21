@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getOrCreateDeviceUuid, isDeviceUuid } from "./device-identity.ts";
+import { createDeviceUuid, getOrCreateDeviceUuid, isDeviceUuid } from "./device-identity.ts";
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -24,4 +24,16 @@ test("replaces invalid persisted identities", () => {
   const storage = new MemoryStorage();
   storage.setItem("prem-engine:device-uuid", "not-a-device");
   assert.equal(isDeviceUuid(getOrCreateDeviceUuid(storage)), true);
+});
+
+test("creates a UUID when randomUUID is unavailable on an HTTP LAN origin", () => {
+  const created = createDeviceUuid({
+    getRandomValues(values) {
+      values.set(Array.from({ length: 16 }, (_, index) => index));
+      return values;
+    },
+  });
+
+  assert.equal(created, "00010203-0405-4607-8809-0a0b0c0d0e0f");
+  assert.equal(isDeviceUuid(created), true);
 });

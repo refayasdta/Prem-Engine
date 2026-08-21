@@ -105,9 +105,7 @@ async def test_worker_lease_progress_success_and_quota_failure(
 
     async with sessions.begin() as session:
         state = await session.scalar(
-            select(LocalWorkerState)
-            .where(LocalWorkerState.singleton_key == 1)
-            .with_for_update()
+            select(LocalWorkerState).where(LocalWorkerState.singleton_key == 1).with_for_update()
         )
         assert state is not None
         state.next_player_sync_at = None
@@ -180,6 +178,7 @@ async def test_fixture_player_and_training_runners_cover_success_and_failure(
                 requests_failed=0,
                 squads_requested=1,
                 matches_requested=1,
+                fpl_fallback_used=True,
                 summaries=(),
             )
         ),
@@ -188,6 +187,7 @@ async def test_fixture_player_and_training_runners_cover_success_and_failure(
     monkeypatch.setattr(local_worker, "_finish_player_sync", finish_player)
     assert await local_worker._run_player_if_due(
         client=SimpleNamespace(),  # type: ignore[arg-type]
+        fpl_client=SimpleNamespace(),  # type: ignore[arg-type]
         sessions=sessions,
         settings=settings,
         worker_id=worker_id,
@@ -229,9 +229,7 @@ async def test_fixture_player_and_training_runners_cover_success_and_failure(
     finish_training.assert_awaited_once()
 
     failure = RuntimeError("fixture failed")
-    monkeypatch.setattr(
-        local_worker, "synchronize_local_fixtures", AsyncMock(side_effect=failure)
-    )
+    monkeypatch.setattr(local_worker, "synchronize_local_fixtures", AsyncMock(side_effect=failure))
     fail_operation = AsyncMock(return_value="local_worker_operation_failed")
     monkeypatch.setattr(local_worker, "_fail_operation", fail_operation)
     assert (
@@ -291,6 +289,7 @@ async def test_runner_noop_and_partial_failure_paths(
     monkeypatch.setattr(local_worker, "_claim_player_sync", AsyncMock(return_value=False))
     assert not await local_worker._run_player_if_due(
         client=SimpleNamespace(),  # type: ignore[arg-type]
+        fpl_client=SimpleNamespace(),  # type: ignore[arg-type]
         sessions=sessions,
         settings=settings,
         worker_id=worker_id,

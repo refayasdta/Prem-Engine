@@ -31,6 +31,7 @@ from prem_engine_api.local_sync import (
 )
 from prem_engine_api.local_training import next_training_cutoff, train_next_local_goal_model
 from prem_engine_api.observability import configure_observability
+from prem_engine_api.providers.current_fpl.client import CurrentFplClient
 from prem_engine_api.providers.kickoffapi.client import (
     KickoffApiClient,
     ProviderContractError,
@@ -70,9 +71,7 @@ def _error_code(error: Exception) -> tuple[str, bool]:
 
 async def _locked_state(session: AsyncSession) -> LocalWorkerState:
     state = await session.scalar(
-        select(LocalWorkerState)
-        .where(LocalWorkerState.singleton_key == 1)
-        .with_for_update()
+        select(LocalWorkerState).where(LocalWorkerState.singleton_key == 1).with_for_update()
     )
     if state is None:
         state = LocalWorkerState(singleton_key=1, status="idle")
@@ -110,9 +109,11 @@ async def _claim_fixture_sync(
             return None
         if state.next_fixture_sync_at is not None and state.next_fixture_sync_at > now:
             return None
-        full = state.last_full_fixture_sync_at is None or (
-            now - state.last_full_fixture_sync_at
-        ).total_seconds() >= settings.local_full_fixture_sync_interval_seconds
+        full = (
+            state.last_full_fixture_sync_at is None
+            or (now - state.last_full_fixture_sync_at).total_seconds()
+            >= settings.local_full_fixture_sync_interval_seconds
+        )
         state.status = "syncing"
         state.current_operation = "fixture_full" if full else "fixture_incremental"
         state.lease_owner = worker_id
@@ -302,9 +303,7 @@ async def _run_fixture_if_due(
     worker_id: str,
     now: datetime,
 ) -> bool | None:
-    full = await _claim_fixture_sync(
-        sessions, settings=settings, worker_id=worker_id, now=now
-    )
+    full = await _claim_fixture_sync(sessions, settings=settings, worker_id=worker_id, now=now)
     if full is None:
         return None
     try:
@@ -460,14 +459,13 @@ async def _run_training_if_due(
 async def _run_player_if_due(
     *,
     client: KickoffApiClient,
+    fpl_client: CurrentFplClient,
     sessions: async_sessionmaker[AsyncSession],
     settings: Settings,
     worker_id: str,
     now: datetime,
 ) -> bool:
-    if not await _claim_player_sync(
-        sessions, settings=settings, worker_id=worker_id, now=now
-    ):
+    if not await _claim_player_sync(sessions, settings=settings, worker_id=worker_id, now=now):
         return False
     try:
         season_uuid = await _season_uuid(sessions, settings=settings, now=now)
@@ -476,6 +474,7 @@ async def _run_player_if_due(
         season_year = active_season_start_year(now, settings.local_season_start_year)
         outcome = await sync_player_context(
             client=client,
+            fpl_client=fpl_client,
             session_factory=sessions,
             season_uuid=season_uuid,
             league=settings.local_competition_code,
@@ -498,6 +497,7 @@ async def _run_player_if_due(
             requests_used=outcome.requests_used,
             squads_requested=outcome.squads_requested,
             matches_requested=outcome.matches_requested,
+            fpl_fallback_used=outcome.fpl_fallback_used,
         )
     except Exception as error:
         code = await _fail_operation(
@@ -538,11 +538,18 @@ async def run() -> None:
             provider_configured=True,
             scheduling_state="active",
         )
-        async with KickoffApiClient(
-            settings=settings,
-            session_factory=sessions,
-            raw_store=raw_store,
-        ) as client:
+        async with (
+            KickoffApiClient(
+                settings=settings,
+                session_factory=sessions,
+                raw_store=raw_store,
+            ) as client,
+            CurrentFplClient(
+                settings=settings,
+                session_factory=sessions,
+                raw_store=raw_store,
+            ) as fpl_client,
+        ):
             while True:
                 now = datetime.now(UTC)
                 fixture_result = await _run_fixture_if_due(
@@ -564,6 +571,7 @@ async def run() -> None:
                     if not ran_training:
                         await _run_player_if_due(
                             client=client,
+                            fpl_client=fpl_client,
                             sessions=sessions,
                             settings=settings,
                             worker_id=worker_id,

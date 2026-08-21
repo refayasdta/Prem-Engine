@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     fpl_historical_base_url: str = (
         "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data"
     )
+    fpl_current_base_url: str = "https://fantasy.premierleague.com"
+    fpl_current_daily_request_limit: PositiveInt = 8
+    fpl_current_operational_request_limit: PositiveInt = 4
     historical_data_base_url: str = "https://www.football-data.co.uk/mmz4281"
     raw_data_root: Path = Path("data/raw")
     raw_response_store: Literal["local", "r2"] = "local"
@@ -145,6 +148,8 @@ class Settings(BaseSettings):
             raise ValueError("LOCAL_FIXTURE_SYNC_MAX_PAGES cannot exceed 20")
         if self.local_player_sync_max_requests > self.kickoff_operational_request_limit:
             raise ValueError("local player sync must fit inside the operational daily allowance")
+        if self.fpl_current_operational_request_limit > self.fpl_current_daily_request_limit:
+            raise ValueError("FPL current operational limit cannot exceed its daily hard limit")
         if not 1 <= self.kickoff_quota_warning_threshold <= 85:
             raise ValueError("KICKOFF_QUOTA_WARNING_THRESHOLD must be between 1 and 85")
         if self.api_origin_auth_enabled and self.api_origin_token is None:

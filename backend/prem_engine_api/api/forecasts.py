@@ -25,6 +25,7 @@ from prem_engine_api.domain.models import (
     PredictionVersion,
     StoredSimulation,
 )
+from prem_engine_api.forecasting.lineups import LineupCoverageError
 from prem_engine_api.forecasting.presentation import event_is_visible, presentation_clock
 from prem_engine_api.forecasting.user_play import (
     UserPlayError,
@@ -601,6 +602,19 @@ async def play_match(
         raise HTTPException(
             status_code=error.status_code,
             detail={"code": error.code, "message": str(error)},
+        ) from error
+    except LineupCoverageError as error:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "lineup_coverage_unavailable",
+                "message": (
+                    "Player data is still synchronizing for this fixture. "
+                    "Try Play again after local synchronization completes."
+                ),
+            },
+            headers={"Retry-After": "300"},
         ) from error
     response = await build_device_match_forecast_response(
         session,

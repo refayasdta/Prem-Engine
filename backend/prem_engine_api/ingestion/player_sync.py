@@ -18,10 +18,12 @@ from prem_engine_api.domain.models import (
     PlayerMatchPerformance,
     SquadMembership,
 )
+from prem_engine_api.ingestion.current_fpl import ingest_current_fpl_squads
 from prem_engine_api.ingestion.player_context import (
     PlayerContextIngestionSummary,
     PlayerContextIngestor,
 )
+from prem_engine_api.providers.current_fpl.client import CurrentFplClient
 from prem_engine_api.providers.kickoffapi.client import (
     CapturedProviderResponse,
     KickoffApiClient,
@@ -36,6 +38,7 @@ class PlayerContextSyncOutcome:
     requests_failed: int
     squads_requested: int
     matches_requested: int
+    fpl_fallback_used: bool
     summaries: tuple[PlayerContextIngestionSummary, ...]
 
 
@@ -50,7 +53,7 @@ def _next_cursor(payload: object) -> str | None:
 
 
 async def _club_targets(
-    session: AsyncSession, *, season_uuid: UUID, limit: int
+    session: AsyncSession, *, season_uuid: UUID, limit: int, now: datetime
 ) -> tuple[tuple[UUID, str], ...]:
     match_clubs = list(
         (
@@ -77,19 +80,60 @@ async def _club_targets(
             )
         ).all()
     )
-    freshness: list[tuple[datetime | None, UUID, str]] = []
+    freshness: list[tuple[bool, datetime | None, datetime | None, UUID, str]] = []
     for club_uuid, external_id in references:
+        player_count = int(
+            await session.scalar(
+                select(func.count())
+                .select_from(SquadMembership)
+                .where(
+                    SquadMembership.season_uuid == season_uuid,
+                    SquadMembership.club_uuid == club_uuid,
+                    SquadMembership.left_on.is_(None),
+                )
+            )
+            or 0
+        )
+        goalkeeper_count = int(
+            await session.scalar(
+                select(func.count())
+                .select_from(SquadMembership)
+                .where(
+                    SquadMembership.season_uuid == season_uuid,
+                    SquadMembership.club_uuid == club_uuid,
+                    SquadMembership.left_on.is_(None),
+                    func.lower(SquadMembership.primary_position).in_(("goalkeeper", "gk")),
+                )
+            )
+            or 0
+        )
+        adequate = player_count >= 15 and goalkeeper_count >= 1
         latest = await session.scalar(
             select(func.max(SquadMembership.updated_at)).where(
                 SquadMembership.season_uuid == season_uuid,
                 SquadMembership.club_uuid == club_uuid,
             )
         )
-        freshness.append((latest, club_uuid, external_id))
+        next_kickoff = await session.scalar(
+            select(func.min(Match.current_kickoff_at)).where(
+                Match.season_uuid == season_uuid,
+                Match.current_kickoff_at >= now,
+                Match.status.in_((FixtureStatus.SCHEDULED, FixtureStatus.POSTPONED)),
+                (Match.home_club_uuid == club_uuid) | (Match.away_club_uuid == club_uuid),
+            )
+        )
+        freshness.append((adequate, latest, next_kickoff, club_uuid, external_id))
     freshness.sort(
-        key=lambda item: (item[0] is not None, item[0] or datetime.min.replace(tzinfo=UTC))
+        key=lambda item: (
+            item[0],
+            item[2] is None,
+            item[2] or datetime.max.replace(tzinfo=UTC),
+            item[1] is not None,
+            item[1] or datetime.min.replace(tzinfo=UTC),
+            str(item[3]),
+        )
     )
-    return tuple((club_uuid, external_id) for _, club_uuid, external_id in freshness[:limit])
+    return tuple((club_uuid, external_id) for _, _, _, club_uuid, external_id in freshness[:limit])
 
 
 async def _match_targets(
@@ -134,6 +178,7 @@ async def _match_targets(
 async def sync_player_context(
     *,
     client: KickoffApiClient,
+    fpl_client: CurrentFplClient | None = None,
     session_factory: async_sessionmaker[AsyncSession],
     season_uuid: UUID,
     league: str,
@@ -148,12 +193,16 @@ async def sync_player_context(
         raise ValueError("sync request and target limits must be non-negative")
     async with session_factory() as session:
         club_targets = await _club_targets(
-            session, season_uuid=season_uuid, limit=min(max_squads, max_requests)
+            session,
+            season_uuid=season_uuid,
+            limit=min(max_squads, max_requests),
+            now=datetime.now(UTC),
         )
         match_targets = await _match_targets(session, season_uuid=season_uuid, limit=max_matches)
 
     used = failed = squads_requested = matches_requested = 0
     summaries: list[PlayerContextIngestionSummary] = []
+    fallback_targets: set[UUID] = set()
 
     async def capture(
         endpoint: str, params: dict[str, str | int | float | bool]
@@ -212,14 +261,55 @@ async def sync_player_context(
             continue
         squads_requested += 1
         async with session_factory.begin() as session:
+            summary = await PlayerContextIngestor(session).ingest_squad(
+                captured.payload,
+                season_uuid=season_uuid,
+                club_uuid=club_uuid,
+                observed_at=datetime.now(UTC),
+            )
+            summaries.append(summary)
+            player_count = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(SquadMembership)
+                    .where(
+                        SquadMembership.season_uuid == season_uuid,
+                        SquadMembership.club_uuid == club_uuid,
+                        SquadMembership.left_on.is_(None),
+                    )
+                )
+                or 0
+            )
+            goalkeeper_count = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(SquadMembership)
+                    .where(
+                        SquadMembership.season_uuid == season_uuid,
+                        SquadMembership.club_uuid == club_uuid,
+                        SquadMembership.left_on.is_(None),
+                        func.lower(SquadMembership.primary_position).in_(("goalkeeper", "gk")),
+                    )
+                )
+                or 0
+            )
+            if player_count < 15 or goalkeeper_count < 1:
+                fallback_targets.add(club_uuid)
+
+    fallback_used = False
+    if fallback_targets and fpl_client is not None:
+        captured = await fpl_client.get_bootstrap()
+        async with session_factory.begin() as session:
             summaries.append(
-                await PlayerContextIngestor(session).ingest_squad(
+                await ingest_current_fpl_squads(
+                    session,
                     captured.payload,
                     season_uuid=season_uuid,
-                    club_uuid=club_uuid,
+                    target_club_uuids=fallback_targets,
                     observed_at=datetime.now(UTC),
                 )
             )
+        fallback_used = True
 
     for match_uuid, external_fixture_id in match_targets:
         if used + 2 > max_requests:
@@ -252,5 +342,6 @@ async def sync_player_context(
         requests_failed=failed,
         squads_requested=squads_requested,
         matches_requested=matches_requested,
+        fpl_fallback_used=fallback_used,
         summaries=tuple(summaries),
     )

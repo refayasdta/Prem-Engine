@@ -273,7 +273,7 @@ export function OfficialMatch({ matchUuid }: { matchUuid: string }) {
     <main className={styles.shell} id="main-content">
       {error ? (
         <div className={styles.connectionNotice} role="status">
-          Live connection interrupted. Showing the most recent verified state while retrying.
+          {error}
         </div>
       ) : null}
       <header className={styles.meta}>

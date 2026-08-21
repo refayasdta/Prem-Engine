@@ -4,17 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prem_engine_api.domain.enums import FixtureStatus, JobStatus, PredictionState
+from prem_engine_api.domain.enums import FixtureStatus, PredictionState
 from prem_engine_api.domain.models import (
     ActualResultRevision,
     DeviceSimulation,
     FixtureScheduleRevision,
-    JobRun,
     LifecycleEvent,
     Match,
     PredictionVersion,
@@ -36,32 +35,6 @@ class RescheduleOutcome:
 
     revision_uuid: UUID
     prediction_voided: bool
-    replacement_job_uuid: UUID
-
-
-async def _cancel_generation_jobs(
-    session: AsyncSession,
-    *,
-    match_uuid: UUID,
-    cancelled_at: datetime,
-) -> int:
-    jobs = list(
-        await session.scalars(
-            select(JobRun)
-            .where(
-                JobRun.match_uuid == match_uuid,
-                JobRun.job_type == "generate_prediction",
-                JobRun.status.in_((JobStatus.PENDING, JobStatus.LEASED, JobStatus.RUNNING)),
-            )
-            .with_for_update()
-        )
-    )
-    for job in jobs:
-        job.status = JobStatus.CANCELLED
-        job.lease_owner = None
-        job.lease_expires_at = None
-        job.finished_at = cancelled_at
-    return len(jobs)
 
 
 async def _void_results_for_replay(
@@ -137,11 +110,6 @@ async def postpone_match(
     if match.status is FixtureStatus.POSTPONED:
         return False
 
-    cancelled_jobs = await _cancel_generation_jobs(
-        session,
-        match_uuid=match_uuid,
-        cancelled_at=effective_observed_at,
-    )
     voided_results = await _void_results_for_replay(
         session,
         match_uuid=match_uuid,
@@ -206,16 +174,6 @@ async def postpone_match(
                 payload={"reason": "fixture_postponed", "match_uuid": str(match_uuid)},
             )
         )
-        session.add(
-            JobRun(
-                idempotency_key=f"recalculate_simulated_standings:{match_uuid}:{revision_number}",
-                job_type="recalculate_simulated_standings",
-                status=JobStatus.PENDING,
-                match_uuid=match_uuid,
-                due_at=effective_observed_at,
-                attempt_count=0,
-            )
-        )
     match.status = FixtureStatus.POSTPONED
     session.add(
         LifecycleEvent(
@@ -225,7 +183,6 @@ async def postpone_match(
             actor=actor,
             payload={
                 "prediction_voided": prediction_voided,
-                "generation_jobs_cancelled": cancelled_jobs,
                 "result_revisions_voided": voided_results,
                 "device_simulations_voided": voided_device_simulations,
             },
@@ -255,11 +212,6 @@ async def cancel_match(
     if match.status is FixtureStatus.CANCELLED:
         return False
 
-    cancelled_jobs = await _cancel_generation_jobs(
-        session,
-        match_uuid=match_uuid,
-        cancelled_at=effective_observed_at,
-    )
     voided_results = await _void_results_for_replay(
         session,
         match_uuid=match_uuid,
@@ -324,16 +276,6 @@ async def cancel_match(
                 payload={"reason": "fixture_cancelled", "match_uuid": str(match_uuid)},
             )
         )
-        session.add(
-            JobRun(
-                idempotency_key=f"recalculate_simulated_standings:{match_uuid}:{revision_number}",
-                job_type="recalculate_simulated_standings",
-                status=JobStatus.PENDING,
-                match_uuid=match_uuid,
-                due_at=effective_observed_at,
-                attempt_count=0,
-            )
-        )
     match.status = FixtureStatus.CANCELLED
     session.add(
         LifecycleEvent(
@@ -343,7 +285,6 @@ async def cancel_match(
             actor=actor,
             payload={
                 "prediction_voided": prediction_voided,
-                "generation_jobs_cancelled": cancelled_jobs,
                 "result_revisions_voided": voided_results,
                 "device_simulations_voided": voided_device_simulations,
             },
@@ -373,11 +314,6 @@ async def reschedule_match(
     if match is None:
         raise MatchNotFoundError(str(match_uuid))
 
-    cancelled_jobs = await _cancel_generation_jobs(
-        session,
-        match_uuid=match_uuid,
-        cancelled_at=effective_observed_at,
-    )
     voided_results = await _void_results_for_replay(
         session,
         match_uuid=match_uuid,
@@ -448,29 +384,6 @@ async def reschedule_match(
     match.current_kickoff_at = revised_kickoff_at
     match.prediction_due_at = revised_kickoff_at - timedelta(hours=24)
 
-    replacement_job_uuid = uuid4()
-    session.add(
-        JobRun(
-            job_uuid=replacement_job_uuid,
-            idempotency_key=f"generate_prediction:{match_uuid}:{revision_number}",
-            job_type="generate_prediction",
-            status=JobStatus.PENDING,
-            match_uuid=match_uuid,
-            due_at=match.prediction_due_at,
-            attempt_count=0,
-        )
-    )
-    if prediction_voided:
-        session.add(
-            JobRun(
-                idempotency_key=f"recalculate_simulated_standings:{match_uuid}:{revision_number}",
-                job_type="recalculate_simulated_standings",
-                status=JobStatus.PENDING,
-                match_uuid=match_uuid,
-                due_at=effective_observed_at,
-                attempt_count=0,
-            )
-        )
     session.add(
         LifecycleEvent(
             aggregate_type="match",
@@ -481,7 +394,6 @@ async def reschedule_match(
                 "revision_number": revision_number,
                 "revised_kickoff_at": revised_kickoff_at.isoformat(),
                 "prediction_voided": prediction_voided,
-                "generation_jobs_cancelled": cancelled_jobs,
                 "result_revisions_voided": voided_results,
                 "device_simulations_voided": voided_device_simulations,
             },
@@ -491,5 +403,4 @@ async def reschedule_match(
     return RescheduleOutcome(
         revision_uuid=revision.revision_uuid,
         prediction_voided=prediction_voided,
-        replacement_job_uuid=replacement_job_uuid,
     )

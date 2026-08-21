@@ -15,15 +15,13 @@ from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def test_local_configuration_rejects_hosted_delivery_paths() -> None:
+def test_local_configuration_has_no_hosted_delivery_paths() -> None:
     settings = Settings(deployment_mode="local", kickoff_api_key=None)
 
     assert settings.local_fixture_freshness_seconds == 14400
     assert settings.kickoff_api_key is None
-    with pytest.raises(ValueError, match="Cloud Tasks"):
-        Settings(deployment_mode="local", forecast_task_scheduling_enabled=True)
-    with pytest.raises(ValueError, match="public snapshots"):
-        Settings(deployment_mode="local", public_snapshot_store="local")
+    assert "forecast_task_scheduling_enabled" not in Settings.model_fields
+    assert "public_snapshot_store" not in Settings.model_fields
 
 
 def test_local_configuration_accepts_an_optional_provider_key() -> None:

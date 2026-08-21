@@ -11,7 +11,6 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  ...(process.env.VERCEL_ENV === "production" ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
 const securityHeaders = [
@@ -22,14 +21,6 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
   },
-  ...(process.env.VERCEL_ENV === "production" && process.env.PREM_ENGINE_HSTS_ENABLED === "true"
-    ? [
-        {
-          key: "Strict-Transport-Security",
-          value: "max-age=31536000; includeSubDomains",
-        },
-      ]
-    : []),
 ];
 
 const nextConfig: NextConfig = {

@@ -50,10 +50,10 @@ offline recovery, and optional mobile-LAN instructions are in the
 docker compose --profile operations run --rm operations diagnostics
 ```
 
-The local transition is being delivered in bounded milestones. The foundation Compose topology,
-safe unconfigured startup, audited synchronization, chronological Phase 7 catch-up training, and
-per-device Play lifecycle and local operations are implemented. Hosted-code removal follows the
-acceptance sequence in [the cloneable local architecture](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md).
+The cloneable local edition includes the Compose topology, safe unconfigured startup, audited
+synchronization, chronological Phase 7 catch-up training, per-device Play lifecycle, local
+operations, and removal of the obsolete hosted deployment path. The acceptance sequence is recorded
+in [the cloneable local architecture](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md).
 
 Completed matchweeks are refitted in order using the approved Phase 7 configuration and all
 eligible historical plus current-season results known at the cutoff. Postponed fixtures do not
@@ -93,12 +93,10 @@ unsupported because the historical export has no labels for them. Phase 13 turns
 the locked goal and statistic forecasts into one deterministic, checksum-protected
 match payload whose score, event feed, lineups, and statistics agree exactly. A
 browser preview replays that stored payload without regenerating the match.
-Phase 14 adds the automatic T-24 lifecycle: revision-scoped job scheduling,
-expiring database leases, time-safe feature snapshots, real canonical player
-lineups, atomic forecast locking, postponement-safe replacement jobs, and a
-public synchronized replay endpoint. The endpoint never exposes future events or
-the simulated final result before the shared one-minute presentation reaches
-full-time. Phase 15 adds 34 leakage-safe observed-shape and measurable
+Phase 14 historically added an automatic shared T-24 lifecycle. Its schema and phase record are
+retained for audit, while the active local product now creates an immutable, device-specific
+simulation only when its user presses Play during the T-24 to T+45 window. Phase 15 adds 34
+leakage-safe observed-shape and measurable
 style-proxy features. Its readiness build covers all 2,280 fixtures and passed
 the training gate. The user's manual run completed, but the tactical candidate
 was worse than Phase 7 on every primary holdout measure and was rejected. The
@@ -136,9 +134,8 @@ live evaluation of every official forecast paired with an accepted real result.
 - [Phase 16A core product UI](docs/phase-16a/CORE_PRODUCT_UI.md)
 - [Phase 16B standings and evaluation](docs/phase-16b/STANDINGS_AND_EVALUATION.md)
 - [Rate-limiting security controls](docs/security/RATE_LIMITING.md)
-- [T-24 forecast rehearsal](docs/security/T24_REHEARSAL.md)
-- [Pre-deployment operational hardening](docs/security/PRE_DEPLOYMENT_OPERATIONS.md)
-- [Deployment runbook](docs/deployment/DEPLOYMENT_RUNBOOK.md)
+- [Local operations runbook](docs/deployment/LOCAL_OPERATIONS.md)
+- [Cloneable local architecture and acceptance plan](docs/deployment/CLONEABLE_LOCAL_ARCHITECTURE.md)
 
 ## Development
 
@@ -194,23 +191,7 @@ Open `http://localhost:3000/simulation-preview`. Play, pause, seek, and restart
 the fixed one-minute replay. Refreshing the page loads the same seed and checksum,
 so it cannot silently produce a different match.
 
-## Phase 14 automatic lifecycle (retained historical workflow)
-
-After applying migrations and configuring the two approved artifact paths, run
-one local dispatcher cycle with:
-
-```powershell
-.\scripts\run-forecast-dispatcher.ps1
-```
-
-The hosted design invoked the same one-shot command every minute. A
-cycle creates any missing current-revision jobs, leases a bounded due batch, and
-generates each complete prediction transactionally. It also consumes the queued
-simulated-standings recalculation after the stored presentation becomes fully
-revealable. The browser reads
-`GET /api/matches/{match_uuid}/forecast`. The active local product replaces that automatic shared
-path with device-scoped `GET /api/matches/{match_uuid}/forecast?device_uuid=...` and
-`POST /api/matches/{match_uuid}/play`; old shared simulations remain read-only audit records.
+## Current player-context workflow
 
 Refresh current squads, availability, transfers, confirmed lineups, and
 post-match player performances with a quota-bounded cycle:
@@ -219,10 +200,9 @@ post-match player performances with a quota-bounded cycle:
 .\scripts\sync-player-context.ps1 -Season 2026
 ```
 
-The default uses no more than 16 KickoffAPI requests and is intended for one
-daily scheduler invocation. See the operational-hardening guide for its request
-distribution and the independent daily and rolling-minute safeguards. KickoffAPI remains the
-primary squad source. If a requested squad has fewer than 15 active candidates or no identified
+The default uses no more than 16 KickoffAPI requests and is run automatically by the local worker's
+bounded daily synchronization cycle. KickoffAPI remains the primary squad source. If a requested
+squad has fewer than 15 active candidates or no identified
 goalkeeper, the cycle captures one official FPL bootstrap snapshot and imports only the affected
 clubs. That fallback has a separate four-request operational and eight-request hard daily ceiling.
 

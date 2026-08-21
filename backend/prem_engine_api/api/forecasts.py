@@ -401,6 +401,8 @@ async def build_device_match_forecast_response(
             final_statistics=simulation.statistics if clock.complete else None,
         ),
     )
+
+
 @router.get("/upcoming", response_model=list[UpcomingMatchResponse])
 async def upcoming_matches(
     session: Annotated[AsyncSession, Depends(get_db_session)],

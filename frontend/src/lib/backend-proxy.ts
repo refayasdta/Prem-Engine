@@ -1,17 +1,10 @@
-import { readPublicSnapshot, type SnapshotCandidate } from "./public-snapshot.ts";
-
 const DEFAULT_BACKEND = "http://127.0.0.1:8000";
 const DEFAULT_CACHE_SECONDS = 300;
 const FORECAST_CACHE_SECONDS = 30;
 
 export function resolveBackendConfiguration(
   configuredBaseUrl = process.env.PREM_ENGINE_API_BASE_URL,
-  configuredOriginToken = process.env.PREM_ENGINE_ORIGIN_TOKEN,
-  deploymentEnvironment = process.env.VERCEL_ENV,
 ) {
-  if (deploymentEnvironment === "production" && !configuredBaseUrl) {
-    throw new Error("PREM_ENGINE_API_BASE_URL is required for production deployments");
-  }
   const baseUrl = new URL(configuredBaseUrl ?? DEFAULT_BACKEND);
   if (
     baseUrl.username ||
@@ -22,45 +15,21 @@ export function resolveBackendConfiguration(
   ) {
     throw new Error("PREM_ENGINE_API_BASE_URL must be an origin without credentials or suffixes");
   }
-  if (deploymentEnvironment === "production" && baseUrl.protocol !== "https:") {
-    throw new Error("PREM_ENGINE_API_BASE_URL must use HTTPS in production");
-  }
-  if (
-    deploymentEnvironment === "production" &&
-    (!configuredOriginToken || Buffer.byteLength(configuredOriginToken) < 32)
-  ) {
-    throw new Error("PREM_ENGINE_ORIGIN_TOKEN must contain at least 32 bytes in production");
-  }
-  return {
-    baseUrl: baseUrl.origin,
-    originToken: configuredOriginToken,
-  };
+  return { baseUrl: baseUrl.origin };
 }
 
 export async function proxyBackend(path: string, init: RequestInit = {}) {
   const method = (init.method ?? "GET").toUpperCase();
-  const snapshot = method === "GET"
-    ? await readPublicSnapshot(path)
-    : { fresh: null, stale: null };
-  if (snapshot.fresh) {
-    return snapshotResponse(snapshot.fresh, false);
-  }
   try {
-    const { baseUrl, originToken } = resolveBackendConfiguration();
+    const { baseUrl } = resolveBackendConfiguration();
     const requestHeaders = new Headers(init.headers);
     requestHeaders.set("accept", "application/json");
-    if (originToken) {
-      requestHeaders.set("x-prem-engine-origin-token", originToken);
-    }
     const response = await fetch(`${baseUrl}${path}`, {
       ...init,
       cache: "no-store",
       headers: requestHeaders,
     });
     const body = await response.text();
-    if (response.status >= 500 && snapshot.stale) {
-      return snapshotResponse(snapshot.stale, true);
-    }
     const headers = new Headers({
       "content-type": response.headers.get("content-type") ?? "application/json",
       "x-prem-engine-source": "origin",
@@ -92,28 +61,11 @@ export async function proxyBackend(path: string, init: RequestInit = {}) {
       headers,
     });
   } catch {
-    if (snapshot.stale) {
-      return snapshotResponse(snapshot.stale, true);
-    }
     return Response.json(
       { detail: "Prem Engine API is unavailable. Start the backend and try again." },
       { status: 503, headers: { "cache-control": "private, no-store" } },
     );
   }
-}
-
-function snapshotResponse(candidate: SnapshotCandidate, stale: boolean): Response {
-  const cacheSeconds = stale ? Math.min(candidate.cacheSeconds, 30) : candidate.cacheSeconds;
-  const headers = new Headers({
-    "cache-control":
-      cacheSeconds > 0
-        ? `public, s-maxage=${cacheSeconds}, stale-while-revalidate=${cacheSeconds}`
-        : "private, no-store",
-    "content-type": "application/json",
-    "x-prem-engine-source": stale ? "snapshot-stale" : "snapshot",
-  });
-  if (stale) headers.set("warning", '110 - "Response is stale"');
-  return new Response(candidate.body, { status: 200, headers });
 }
 
 function originCacheSeconds(path: string, body: string): number | null {

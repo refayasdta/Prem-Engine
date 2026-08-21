@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from prem_engine_api.api.forecasts import build_match_forecast_response
 from prem_engine_api.domain.enums import FixtureStatus, JobStatus, PredictionState
 from prem_engine_api.domain.lifecycle import cancel_match, reschedule_match
 from prem_engine_api.domain.models import (
@@ -99,7 +100,25 @@ async def seed_locked_match(session: AsyncSession) -> tuple[Match, PredictionVer
                 home_goals=2,
                 away_goals=1,
                 statistics={},
-                events=[],
+                events=[
+                    {
+                        "minute": 1,
+                        "second": 0,
+                        "team": "home",
+                        "event_type": event_type,
+                        "home_score": 1 if event_type == "goal" else 0,
+                        "away_score": 0,
+                    }
+                    for event_type in (
+                        "goal",
+                        "shot_on_target",
+                        "shot",
+                        "corner",
+                        "foul",
+                        "yellow_card",
+                        "red_card",
+                    )
+                ],
                 checksum="c" * 64,
                 presentation_started_at=kickoff - timedelta(hours=24),
                 presentation_duration_seconds=60,
@@ -152,15 +171,6 @@ async def test_migrated_schema_contains_core_tables(db_session: AsyncSession) ->
 async def test_reschedule_voids_prediction_and_keeps_artifacts(db_session: AsyncSession) -> None:
     match, prediction = await seed_locked_match(db_session)
     revised_kickoff = match.current_kickoff_at + timedelta(days=21)
-    stale_job = JobRun(
-        idempotency_key=f"generate_prediction:{match.match_uuid}:1",
-        job_type="generate_prediction",
-        status=JobStatus.PENDING,
-        match_uuid=match.match_uuid,
-        due_at=match.prediction_due_at,
-        attempt_count=0,
-    )
-    db_session.add(stale_job)
     result = ActualResultRevision(
         match_uuid=match.match_uuid,
         revision_number=1,
@@ -185,19 +195,11 @@ async def test_reschedule_voids_prediction_and_keeps_artifacts(db_session: Async
     assert outcome.prediction_voided is True
     assert prediction.state is PredictionState.VOIDED
     assert prediction.void_reason == "fixture_postponed"
-    assert stale_job.status is JobStatus.CANCELLED
     assert match.current_kickoff_at == revised_kickoff
     assert match.prediction_due_at == revised_kickoff - timedelta(hours=24)
     assert result.accepted is False
     assert result.training_eligible is False
     assert result.voided_at == datetime(2026, 9, 2, tzinfo=UTC)
-    jobs = list(
-        await db_session.scalars(select(JobRun).where(JobRun.match_uuid == match.match_uuid))
-    )
-    assert {job.job_type for job in jobs} == {
-        "generate_prediction",
-        "recalculate_simulated_standings",
-    }
     assert await db_session.scalar(
         select(PredictedLineup).where(
             PredictedLineup.prediction_version_uuid == prediction.prediction_version_uuid
@@ -284,7 +286,98 @@ async def test_cancelled_match_voids_without_replacement(db_session: AsyncSessio
     assert match.status is FixtureStatus.CANCELLED
     assert prediction.state is PredictionState.VOIDED
     assert prediction.void_reason == "fixture_cancelled"
-    jobs = list(
-        await db_session.scalars(select(JobRun).where(JobRun.match_uuid == match.match_uuid))
+
+
+@pytest.mark.asyncio
+async def test_retained_shared_simulation_remains_read_only(db_session: AsyncSession) -> None:
+    match, _ = await seed_locked_match(db_session)
+    started_at = match.prediction_due_at
+
+    live = await build_match_forecast_response(
+        db_session,
+        match_uuid=match.match_uuid,
+        now=started_at + timedelta(seconds=10),
     )
-    assert [job.job_type for job in jobs] == ["recalculate_simulated_standings"]
+    complete = await build_match_forecast_response(
+        db_session,
+        match_uuid=match.match_uuid,
+        now=started_at + timedelta(seconds=61),
+    )
+
+    assert live is not None and live.lifecycle_state == "live"
+    assert live.simulation is not None and live.simulation.final_score is None
+    assert live.simulation.visible_statistics["home_shots"] == 3
+    assert complete is not None and complete.lifecycle_state == "complete"
+    assert complete.simulation is not None
+    assert complete.simulation.final_score == {"home": 2, "away": 1}
+
+
+@pytest.mark.asyncio
+async def test_retained_shared_simulation_reports_terminal_legacy_states(
+    db_session: AsyncSession,
+) -> None:
+    match, prediction = await seed_locked_match(db_session)
+    prediction.state = PredictionState.VOIDED
+    db_session.add(
+        JobRun(
+            idempotency_key=f"legacy-failed:{match.match_uuid}",
+            job_type="generate_prediction",
+            status=JobStatus.FAILED,
+            match_uuid=match.match_uuid,
+            due_at=match.prediction_due_at,
+            attempt_count=1,
+        )
+    )
+    await db_session.flush()
+
+    failed = await build_match_forecast_response(
+        db_session,
+        match_uuid=match.match_uuid,
+        now=match.prediction_due_at + timedelta(minutes=1),
+    )
+    match.status = FixtureStatus.POSTPONED
+    postponed = await build_match_forecast_response(
+        db_session,
+        match_uuid=match.match_uuid,
+        now=match.prediction_due_at,
+    )
+    match.status = FixtureStatus.CANCELLED
+    cancelled = await build_match_forecast_response(
+        db_session,
+        match_uuid=match.match_uuid,
+        now=match.prediction_due_at,
+    )
+    missing = await build_match_forecast_response(
+        db_session,
+        match_uuid=UUID("00000000-0000-0000-0000-000000000000"),
+        now=match.prediction_due_at,
+    )
+
+    assert failed is not None and failed.lifecycle_state == "unavailable"
+    assert postponed is not None and postponed.lifecycle_state == "postponed"
+    assert cancelled is not None and cancelled.lifecycle_state == "cancelled"
+    assert missing is None
+
+
+@pytest.mark.asyncio
+async def test_retained_shared_simulation_reports_pre_generation_states(
+    db_session: AsyncSession,
+) -> None:
+    match, prediction = await seed_locked_match(db_session)
+    prediction.state = PredictionState.VOIDED
+    await db_session.flush()
+
+    countdown = await build_match_forecast_response(
+        db_session,
+        match_uuid=match.match_uuid,
+        now=match.prediction_due_at - timedelta(minutes=1),
+    )
+    generating = await build_match_forecast_response(
+        db_session,
+        match_uuid=match.match_uuid,
+        now=match.prediction_due_at + timedelta(minutes=1),
+    )
+
+    assert countdown is not None and countdown.lifecycle_state == "countdown"
+    assert countdown.seconds_until_generation == 60
+    assert generating is not None and generating.lifecycle_state == "generating"

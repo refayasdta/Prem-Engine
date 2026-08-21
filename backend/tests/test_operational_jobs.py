@@ -3,39 +3,27 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
 
 import pytest
-from prem_engine_api.config import Settings
-from prem_engine_api.domain.enums import FixtureStatus, JobStatus, PredictionState
+from prem_engine_api.domain.enums import FixtureStatus
 from prem_engine_api.domain.models import (
     Club,
     ClubExternalReference,
     Competition,
-    JobRun,
     Match,
     MatchExternalReference,
     ObservedLineupPlayer,
     PlayerAvailabilityReport,
     PlayerMatchPerformance,
-    PredictionVersion,
-    ProviderRequestBudget,
     Season,
     SeasonClub,
     SquadMembership,
-    StandingsRow,
-    StandingsSnapshot,
-    StoredSimulation,
     TransferObservation,
 )
 from prem_engine_api.ingestion.player_context import PlayerContextIngestor
 from prem_engine_api.ingestion.player_sync import _club_targets, _next_cursor
-from prem_engine_api.jobs.dispatcher import dispatch_once
-from prem_engine_api.jobs.leases import complete_job
-from prem_engine_api.jobs.standings import recalculate_simulated_standings
-from prem_engine_api.operations.snapshot import collect_operational_snapshot
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def _season_and_match(
@@ -153,190 +141,6 @@ async def test_player_sync_prioritizes_unsynchronized_clubs_in_next_fixture(
         (home.club_uuid, "tm_home"),
         (away.club_uuid, "tm_away"),
     }
-
-
-@pytest.mark.asyncio
-async def test_operational_snapshot_counts_missed_t24_and_quota_usage(
-    db_session: AsyncSession,
-) -> None:
-    _, _, _, match, now = await _season_and_match(db_session)
-    match.status = FixtureStatus.SCHEDULED
-    db_session.add_all(
-        (
-            JobRun(
-                idempotency_key="generate:snapshot-test",
-                job_type="generate_prediction",
-                status=JobStatus.PENDING,
-                match_uuid=match.match_uuid,
-                due_at=match.prediction_due_at,
-                attempt_count=0,
-            ),
-            ProviderRequestBudget(
-                provider="kickoffapi",
-                budget_date=now.date(),
-                request_count=80,
-                operational_limit=85,
-                hard_limit=100,
-            ),
-        )
-    )
-    await db_session.flush()
-
-    snapshot = await collect_operational_snapshot(
-        db_session,
-        now=now,
-        t24_grace_seconds=600,
-    )
-
-    assert snapshot.jobs_pending == 1
-    assert snapshot.jobs_leased == 0
-    assert snapshot.jobs_running == 0
-    assert snapshot.jobs_failed == 0
-    assert snapshot.t24_forecasts_missing == 1
-    assert snapshot.provider_requests_today == 80
-
-
-@pytest.mark.asyncio
-async def test_standings_job_persists_revealed_snapshot_and_completes(
-    db_session: AsyncSession,
-) -> None:
-    season, home, away, match, now = await _season_and_match(db_session)
-    prediction = PredictionVersion(
-        match_uuid=match.match_uuid,
-        version_number=1,
-        state=PredictionState.GENERATING,
-        feature_cutoff_at=match.prediction_due_at,
-        model_version="test",
-        feature_snapshot_checksum="a" * 64,
-        home_win_probability=Decimal("0.50000000"),
-        draw_probability=Decimal("0.25000000"),
-        away_win_probability=Decimal("0.25000000"),
-        expected_home_goals=Decimal("1.5000"),
-        expected_away_goals=Decimal("0.8000"),
-        statistics_distribution={},
-        locked_at=now - timedelta(minutes=2),
-    )
-    db_session.add(prediction)
-    await db_session.flush()
-    db_session.add(
-        StoredSimulation(
-            prediction_version_uuid=prediction.prediction_version_uuid,
-            random_seed=10,
-            home_goals=2,
-            away_goals=0,
-            statistics={},
-            events=[],
-            checksum="b" * 64,
-            presentation_started_at=now - timedelta(minutes=2),
-            presentation_duration_seconds=60,
-        )
-    )
-    await db_session.flush()
-    prediction.state = PredictionState.ACTIVE_LOCKED
-    job = JobRun(
-        idempotency_key="recalculate:test",
-        job_type="recalculate_simulated_standings",
-        status=JobStatus.RUNNING,
-        match_uuid=match.match_uuid,
-        due_at=now - timedelta(minutes=1),
-        lease_owner="worker",
-        lease_expires_at=now + timedelta(minutes=5),
-        attempt_count=1,
-        started_at=now - timedelta(seconds=10),
-    )
-    db_session.add(job)
-    await db_session.flush()
-
-    outcome = await recalculate_simulated_standings(
-        db_session, match_uuid=match.match_uuid, as_of=now
-    )
-    await complete_job(db_session, job_uuid=job.job_uuid, worker_id="worker", now=now)
-
-    assert outcome.season_uuid == season.season_uuid
-    assert outcome.source_fixture_count == 1
-    assert outcome.row_count == 2
-    rows = list(
-        await db_session.scalars(
-            select(StandingsRow)
-            .where(StandingsRow.snapshot_uuid == outcome.snapshot_uuid)
-            .order_by(StandingsRow.position)
-        )
-    )
-    assert [(row.club_uuid, row.points) for row in rows] == [
-        (home.club_uuid, 3),
-        (away.club_uuid, 0),
-    ]
-    snapshot = await db_session.get(StandingsSnapshot, outcome.snapshot_uuid)
-    assert snapshot is not None and snapshot.source_fixture_count == 1
-    assert job.status is JobStatus.SUCCEEDED
-    assert job.lease_owner is None
-
-
-@pytest.mark.asyncio
-async def test_dispatcher_consumes_simulated_standings_jobs(
-    db_session: AsyncSession,
-) -> None:
-    _, _, _, match, _ = await _season_and_match(db_session)
-    now = datetime.now(UTC)
-    prediction = PredictionVersion(
-        match_uuid=match.match_uuid,
-        version_number=1,
-        state=PredictionState.GENERATING,
-        feature_cutoff_at=match.prediction_due_at,
-        model_version="test",
-        feature_snapshot_checksum="c" * 64,
-        home_win_probability=Decimal("0.40000000"),
-        draw_probability=Decimal("0.30000000"),
-        away_win_probability=Decimal("0.30000000"),
-        expected_home_goals=Decimal("1.2000"),
-        expected_away_goals=Decimal("1.0000"),
-        statistics_distribution={},
-        locked_at=now - timedelta(minutes=2),
-    )
-    db_session.add(prediction)
-    await db_session.flush()
-    db_session.add(
-        StoredSimulation(
-            prediction_version_uuid=prediction.prediction_version_uuid,
-            random_seed=11,
-            home_goals=1,
-            away_goals=1,
-            statistics={},
-            events=[],
-            checksum="d" * 64,
-            presentation_started_at=now - timedelta(minutes=2),
-            presentation_duration_seconds=60,
-        )
-    )
-    await db_session.flush()
-    prediction.state = PredictionState.ACTIVE_LOCKED
-    job = JobRun(
-        idempotency_key="recalculate:dispatcher-test",
-        job_type="recalculate_simulated_standings",
-        status=JobStatus.PENDING,
-        match_uuid=match.match_uuid,
-        due_at=now - timedelta(seconds=1),
-        attempt_count=0,
-    )
-    db_session.add(job)
-    await db_session.flush()
-    connection = await db_session.connection()
-    sessions = async_sessionmaker(bind=connection, expire_on_commit=False)
-
-    summary = await dispatch_once(
-        sessions,
-        settings=Settings(),
-        worker_id="standings-worker",
-        now=now,
-    )
-
-    assert summary.jobs_claimed == 1
-    assert summary.standings_recalculated == 1
-    assert summary.forecasts_created == 0
-    async with sessions() as session:
-        completed = await session.get(JobRun, job.job_uuid)
-        assert completed is not None and completed.status is JobStatus.SUCCEEDED
-        assert await session.scalar(select(func.count()).select_from(StandingsSnapshot)) == 1
 
 
 @pytest.mark.asyncio

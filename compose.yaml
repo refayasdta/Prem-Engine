@@ -28,8 +28,6 @@ x-backend-environment: &backend-environment
   LOCAL_SEASON_START_YEAR: ${LOCAL_SEASON_START_YEAR:-}
   RAW_RESPONSE_STORE: local
   RAW_DATA_ROOT: /app/data/raw
-  PUBLIC_SNAPSHOT_STORE: disabled
-  FORECAST_TASK_SCHEDULING_ENABLED: "false"
   GOAL_MODEL_PATH: /app/artifacts/models/goals/goals-v1-156511483a94/model.joblib
   GOAL_MODEL_SHA256: fe8a19c262b6a0d8aa02e01564f6c109eec2d16e237fa276e6a414967ecf0adc
   STATISTICS_MODEL_PATH: /app/artifacts/models/match-statistics/detailed-statistics-v1-42e73adec486/model.joblib

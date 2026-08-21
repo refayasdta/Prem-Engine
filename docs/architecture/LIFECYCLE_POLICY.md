@@ -49,53 +49,49 @@ Canonical states:
 
 Provider statuses are mapped to these states while retaining the original value.
 
-## Forecast states
+## Legacy shared forecast states
+
+The database retains these states so simulations created by the earlier shared-forecast design remain
+readable:
 
 - `pending`: prediction window has not been reached.
-- `generating`: a leased job is building the snapshot and artifacts.
+- `generating`: the historical workflow was building the snapshot and artifacts.
 - `active_locked`: the official active immutable version.
 - `voided`: retained for audit but excluded from all active product calculations.
 - `evaluated`: active locked forecast with accepted actual data and evaluation.
-- `failed`: generation failed and can be retried only while no active version
-  exists.
+- `failed`: historical generation did not complete.
 
 A database constraint permits at most one `active_locked` or `evaluated`
 prediction for a `match_uuid`. Historical voided versions remain available to
 administrators and audit tools.
 
-## Normal pre-match lifecycle
+## Active device-specific lifecycle
 
-1. The scheduler calculates `prediction_due_at = kickoff_at - 24 hours`.
-2. A dispatcher claims the due match with an idempotent job key.
-3. The job uses only information whose source observation time is not later than
-   the feature cutoff.
-4. It creates an immutable feature snapshot.
-5. The expected-lineup model selects starters, substitutes, and formation with
-   uncertainty metadata.
-6. The forecasting model creates result, score, expected-goal, and statistics
-   distributions.
-7. The simulator samples one result and generates a complete consistent event
-   timeline from a recorded seed.
-8. Snapshot, predicted lineup, forecast, statistics, simulation, model version,
-   seed, and cutoff are committed atomically as `active_locked`.
-9. The simulated standings are recalculated from all active simulations.
+1. Fixture synchronization stores the current kickoff and schedule revision.
+2. Play is disabled before `kickoff - 24 hours` and after `kickoff + 45 minutes`.
+3. Inside that inclusive window, the user presses Play and supplies a random browser-local device UUID.
+4. The backend verifies fixture freshness, status, schedule revision, and time window.
+5. The Phase 7 model and pinned detailed-statistics model create a complete simulation using only
+   information available at the cutoff.
+6. The lineup, score, events, statistics, model provenance, seed, device UUID, and schedule revision
+   are committed atomically.
+7. Repeated or concurrent requests for the same device and revision return the existing simulation.
+8. The device's simulated standings include the fixture only after Play has created that record.
 
-If generation fails, no partial official prediction is published.
+If generation fails, no partial simulation is published and the user may retry while the window is
+still open.
 
 ## Frontend replay
 
 The simulation is generated once by the backend. Opening the match page reads the
-stored simulation and gradually reveals its timestamped events. Refreshing,
-reopening, or watching from another device produces the same lineup, events,
-statistics, and result.
+stored simulation and gradually reveals its timestamped events. Refreshing or reopening with the
+same device identity produces the same lineup, events, statistics, and result. Another device has an
+independent identity and may receive a different stable simulation.
 
-The frontend cannot request a reroll. Presentation time and football minute are
-derived from the stored timeline and do not affect the canonical simulation.
-Every official presentation uses the same server-derived wall clock: 25 seconds
-for the first half, 10 seconds for half-time, and 25 seconds for the second half.
-The API withholds future events, final statistics, and the final simulated score
-until that shared clock reaches them. There is no user speed control and no
-simulate button.
+The frontend cannot request a reroll. Presentation time and football minute are derived from the
+stored timeline and do not affect the simulation. The presentation uses 25 seconds for the first
+half, 10 seconds for half-time, and 25 seconds for the second half. The API withholds future events,
+final statistics, and the final score until that clock reaches them.
 
 ## Predicted and real lineups
 
@@ -109,32 +105,29 @@ It cannot change the active forecast. After the match, evaluation may compare:
 
 ## Postponement and rescheduling
 
-### Announced before generation
+### Announced before Play
 
 1. Add a schedule revision with the new kickoff.
 2. Supersede the old schedule revision.
 3. Recalculate `prediction_due_at`.
-4. Do not create or void a prediction because none exists.
+4. Do not create or void a device simulation because none exists.
 
-### Announced after generation
+### Announced after Play
 
 In one transaction:
 
-1. Mark the active prediction version `voided` with reason `fixture_postponed`.
-2. Void its predicted lineup and simulation through the owning prediction
-   version rather than deleting audit records.
-3. Exclude it from public active-forecast queries.
+1. Preserve the old revision and its device simulations as audit records.
+2. Exclude those simulations from the current revision and current simulated table.
 4. Add the revised kickoff schedule.
-5. Recalculate the simulated standings, which now exclude the voided simulation.
-6. Schedule a new generation job 24 hours before the revised kickoff.
+5. Open a new Play window relative to the revised kickoff.
 
-The replacement receives a new prediction version UUID but retains the same
-`match_uuid`. It becomes the only active official prediction.
+The same device may Play again during the revised window. The replacement retains the same
+`match_uuid` but belongs to the new schedule revision.
 
 ## Exceptional fixtures
 
-- Cancelled: void any active prediction and exclude its simulation from the
-  simulated table.
+- Cancelled: exclude device simulations from the current simulated table while retaining their audit
+  records.
 - Abandoned with a replay: treat the replay as a schedule revision of the same
   canonical match unless competition rules identify it as a distinct match.
 - Abandoned but officially declared complete: accept the official result for the
@@ -158,14 +151,14 @@ stored snapshot.
 
 ## Simulated standings
 
-The simulated table is derived only from active locked simulations. It updates as
-each fixture receives its simulation, usually 24 hours before kickoff.
+The simulated table is device-specific and derived only from simulations that device chose to Play
+for current fixture revisions.
 
 Consequences:
 
 - Its matches-played count can differ from the real table.
 - A voided postponed simulation disappears from its calculations.
-- A replacement simulation enters it only when the new prediction locks.
+- A replacement simulation enters it only when the device Plays the revised fixture.
 - It never contributes to the real table.
 
 The UI must show matches played for both tables. In addition to the full current

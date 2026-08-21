@@ -500,6 +500,16 @@ After deletion, run a repository-wide search for GCP, Cloud Run, Cloud Tasks, Cl
 Vercel, Neon, R2, automatic T−24h, snapshot, and hosted-only identifiers. Every remaining reference
 must have a documented local purpose or be retained explicitly as historical documentation.
 
+Implemented in the Stage 6 checkpoint on 2026-08-21. The active codebase now uses Compose-only
+images and validation, local raw storage, direct private-network backend proxying, and the
+device-specific Play lifecycle. Hosted Terraform, deployment workflows and scripts, Cloud Tasks and
+dispatcher code, public-snapshot/R2 delivery, origin-token and Vercel-only settings, automatic
+shared T−24 generation/finalization/watchdogs, and their active runbooks and tests were removed.
+Released migrations and historical phase documents remain unchanged so clean installs and existing
+databases retain their audit history. The active architecture and security pages now describe only
+the cloneable local product; planned private cross-device synchronization remains separately
+documented and unimplemented.
+
 ## Acceptance criteria
 
 The transition is complete only when all of the following pass:

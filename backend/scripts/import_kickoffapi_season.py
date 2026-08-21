@@ -6,7 +6,6 @@ import argparse
 import asyncio
 import json
 from dataclasses import asdict
-from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -16,11 +15,6 @@ from prem_engine_api.ingestion.fixtures import FixtureIngestionSummary, FixtureI
 from prem_engine_api.observability import configure_observability
 from prem_engine_api.providers.kickoffapi.client import KickoffApiClient
 from prem_engine_api.providers.raw_storage import create_raw_response_store
-from prem_engine_api.scheduling.forecast_tasks import (
-    ForecastTaskSyncSummary,
-    sync_forecast_tasks,
-)
-from prem_engine_api.snapshots.publisher import PublicSnapshotPublisher
 
 logger = structlog.get_logger()
 
@@ -98,29 +92,6 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             raise RuntimeError(
                 f"fixture import exceeded --max-pages={args.max_pages} before pagination ended"
             )
-        try:
-            task_summary = await sync_forecast_tasks(
-                sessions,
-                settings=settings,
-                now=datetime.now(UTC),
-            )
-        except Exception:
-            logger.exception(
-                "forecast_task_enqueue_failed",
-                error_code="task_sync_failed_after_ingestion",
-            )
-            task_summary = ForecastTaskSyncSummary(0, 0, 0, 1)
-        publisher = PublicSnapshotPublisher(sessions, settings=settings)
-        try:
-            snapshot_summary = asdict(await publisher.publish_all(now=datetime.now(UTC)))
-        except Exception:
-            logger.exception(
-                "snapshot_publication_failed",
-                error_code="fixture_sync_snapshot_publication_failed",
-            )
-            snapshot_summary = {"published": 0, "disabled": False, "failed": True}
-        finally:
-            await publisher.close()
         return {
             "league": args.league,
             "season": args.season,
@@ -129,8 +100,6 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             "page_summaries": [asdict(summary) for summary in summaries],
             "provider_request_uuids": request_uuids,
             "raw_fetch_uuids": raw_fetch_uuids,
-            "forecast_tasks": asdict(task_summary),
-            "public_snapshots": snapshot_summary,
         }
     finally:
         raw_store.close()

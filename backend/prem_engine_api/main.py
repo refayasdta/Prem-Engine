@@ -16,7 +16,6 @@ from prem_engine_api.api.setup import router as setup_router
 from prem_engine_api.config import get_settings
 from prem_engine_api.db.dependencies import get_db_session
 from prem_engine_api.observability import RequestLoggingMiddleware, configure_observability
-from prem_engine_api.origin_auth import OriginAuthenticationMiddleware
 from prem_engine_api.rate_limit import RateLimitMiddleware
 
 
@@ -56,14 +55,6 @@ def create_app() -> FastAPI:
             limit=settings.api_rate_limit_requests,
             window_seconds=settings.api_rate_limit_window_seconds,
         )
-    if settings.api_origin_auth_enabled:
-        origin_token = settings.api_origin_token
-        if origin_token is None:  # pragma: no cover - enforced by Settings validation
-            raise RuntimeError("origin authentication is missing its active token")
-        tokens = [origin_token.get_secret_value()]
-        if settings.api_origin_token_previous is not None:
-            tokens.append(settings.api_origin_token_previous.get_secret_value())
-        app.add_middleware(OriginAuthenticationMiddleware, tokens=tuple(tokens))
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(forecast_router)
     app.include_router(insights_router)

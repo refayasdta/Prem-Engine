@@ -1,0 +1,48 @@
+name: Compose images
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "modeling/**"
+      - "operations/**"
+      - "artifacts/models/**"
+      - "compose.yaml"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - "requirements.lock"
+      - ".github/workflows/compose-images.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "modeling/**"
+      - "operations/**"
+      - "artifacts/models/**"
+      - "compose.yaml"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - "requirements.lock"
+      - ".github/workflows/compose-images.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+      - name: Build local product images
+        run: docker compose --profile operations build
+      - name: Verify packaged model checksums
+        shell: bash
+        run: |
+          docker compose run --rm --no-deps --entrypoint sha256sum api \
+            /app/artifacts/models/goals/goals-v1-156511483a94/model.joblib \
+            /app/artifacts/models/match-statistics/detailed-statistics-v1-42e73adec486/model.joblib

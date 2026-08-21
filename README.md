@@ -1,7 +1,5 @@
 # Prem Engine
 
-## Short description
-
 Prem Engine is a self-contained Premier League forecasting and match-simulation application that
 runs on your own computer. It synchronizes fixtures and results, forecasts scores and match
 outcomes with the approved Phase 7 model, creates a saved simulation when a user presses Play, and
@@ -12,7 +10,6 @@ simulation history; no Prem Engine cloud account or hosted server is required.
 
 Only the following host software is required:
 
-- **Git**, to download and update the repository.
 - **Docker Desktop** on Windows or macOS, or **Docker Engine with Docker Compose v2** on Linux.
 - A modern desktop browser such as Chrome, Edge, Firefox, or Safari.
 - An internet connection for the first image build and for current football-data synchronization.
@@ -27,24 +24,15 @@ the host. Docker provides them inside the application containers.
 
 ## Installation
 
-1. Install Git and Docker, then start Docker.
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-2. Open PowerShell or another terminal and clone the repository:
+2. Download the ZIP file from this repository or clone using git
 
-   ```powershell
-   git clone https://github.com/refayasdta/Prem-Engine.git
-   cd Prem-Engine
-   ```
+3. Copy ".env.example" file in your directory and rename it to ".env"
 
-3. Create your private local configuration file:
+4. Sign up for [kickoffAPI](https://app.kickoffapi.com/portal/), then create, and copy your API key
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-
-   On macOS or Linux, use `cp .env.example .env` instead.
-
-4. Open `.env` in a text editor and set your provider key:
+4. Open ".env" in a text editor and paste your provider key:
 
    ```text
    KICKOFF_API_KEY=your_key_here
@@ -62,13 +50,6 @@ the host. Docker provides them inside the application containers.
    The first build can take several minutes. Compose starts PostgreSQL, applies database
    migrations, initializes the installation, and then starts the API, frontend, and synchronization
    and model-training worker.
-
-6. Confirm that the services are healthy:
-
-   ```powershell
-   docker compose ps
-   docker compose --profile operations run --rm operations diagnostics
-   ```
 
 7. Open [http://localhost:3000](http://localhost:3000) in your browser. The first synchronization
    may take a short time. Prem Engine will show its real setup or synchronization state while it is
@@ -95,13 +76,11 @@ documented in the [local operations runbook](docs/deployment/LOCAL_OPERATIONS.md
 
 ### Is Prem Engine free?
 
-Prem Engine does not require paid application hosting. You run it on your own computer. You may
-still have normal hardware, electricity, internet, or external data-provider costs, and the terms
-and pricing of a provider can change independently of this project.
+Prem Engine is completely free and open source, made by azaria refaya siddharta. For more projects check out https://refayasdta.github.io/
 
 ### Can it run without a KickoffAPI key?
 
-The application will start, preserve bundled reference data, and display a setup-required state.
+TLDR; No. The application will start, preserve bundled reference data, and display a setup-required state.
 It cannot claim that current fixtures are fresh, so Play remains disabled until a successful
 current-data synchronization. FPL endpoints are used as a bounded fallback for incomplete current
 squad data; they do not replace KickoffAPI as the primary fixture source.

@@ -1,4 +1,4 @@
-# Prem Engine
+# <img src="frontend/src/app/icon.png" alt="Prem Engine logo" width="48"> Prem Engine
 
 ## Short description
 

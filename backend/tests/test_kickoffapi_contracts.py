@@ -112,6 +112,30 @@ def test_lineup_contract_normalizes_starting_xi_alias() -> None:
     assert lineup.data[0].start_xi[0].position == "G"
 
 
+def test_lineup_contract_normalizes_numeric_provider_ids_to_strings() -> None:
+    lineup = validate_endpoint_payload(
+        "/api/v2/fixtures/123/lineups",
+        {
+            "data": [
+                {
+                    "team": {"id": 42, "name": "Home"},
+                    "startXI": [
+                        {"player": {"id": 19465, "name": "Goalkeeper"}, "pos": "G"}
+                    ],
+                    "substitutes": [
+                        {"player": {"id": 2273, "name": "Substitute"}, "pos": "M"}
+                    ],
+                }
+            ]
+        },
+    )
+
+    assert isinstance(lineup, LineupEnvelope)
+    assert lineup.data[0].team.id == "42"
+    assert lineup.data[0].start_xi[0].player.id == "19465"
+    assert lineup.data[0].substitutes[0].player.id == "2273"
+
+
 def test_availability_and_transfer_contracts_allow_sparse_references() -> None:
     injuries = validate_endpoint_payload(
         "/api/v2/injuries",

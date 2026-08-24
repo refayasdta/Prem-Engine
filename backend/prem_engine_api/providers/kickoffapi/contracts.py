@@ -9,7 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ProviderTeam(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    # KickoffAPI uses both JSON numbers and strings for identifiers across
+    # endpoints.  Canonical references are strings, so normalize either wire
+    # representation at the contract boundary.
+    model_config = ConfigDict(extra="allow", coerce_numbers_to_str=True)
 
     id: str
     name: str
@@ -18,7 +21,7 @@ class ProviderTeam(BaseModel):
 
 
 class ProviderPlayer(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", coerce_numbers_to_str=True)
 
     id: str
     name: str | None = None
@@ -31,7 +34,7 @@ class ProviderPlayer(BaseModel):
 
 
 class ProviderLeague(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", coerce_numbers_to_str=True)
 
     id: str
     name: str
@@ -58,7 +61,7 @@ class ProviderScore(BaseModel):
 class ProviderFixture(BaseModel):
     """Accept both fixture shapes currently shown in KickoffAPI's official v2 docs."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", coerce_numbers_to_str=True)
 
     id: str
     date: datetime

@@ -25,7 +25,6 @@ from prem_engine_api.domain.models import (
     PredictionVersion,
     StoredSimulation,
 )
-from prem_engine_api.forecasting.lineups import LineupCoverageError
 from prem_engine_api.forecasting.presentation import event_is_visible, presentation_clock
 from prem_engine_api.forecasting.user_play import (
     UserPlayError,
@@ -249,9 +248,7 @@ async def build_device_match_forecast_response(
     opens_at = revision.kickoff_at - timedelta(hours=24) if revision is not None else None
     closes_at = revision.kickoff_at + timedelta(minutes=45) if revision is not None else None
     seconds_until = (
-        max(0, math.ceil((opens_at - now).total_seconds()))
-        if opens_at is not None
-        else 0
+        max(0, math.ceil((opens_at - now).total_seconds())) if opens_at is not None else 0
     )
     empty_presentation = PresentationResponse(
         started_at=None,
@@ -450,9 +447,7 @@ async def build_match_forecast_response(
     prediction = await session.scalar(
         select(PredictionVersion).where(
             PredictionVersion.match_uuid == match_uuid,
-            PredictionVersion.state.in_(
-                (PredictionState.ACTIVE_LOCKED, PredictionState.EVALUATED)
-            ),
+            PredictionVersion.state.in_((PredictionState.ACTIVE_LOCKED, PredictionState.EVALUATED)),
         )
     )
     seconds_until = max(0, math.ceil((match.prediction_due_at - now).total_seconds()))
@@ -502,7 +497,9 @@ async def build_match_forecast_response(
             lifecycle = (
                 "unavailable"
                 if latest_job is not None and latest_job.status is JobStatus.FAILED
-                else "generating" if now >= match.prediction_due_at else "countdown"
+                else "generating"
+                if now >= match.prediction_due_at
+                else "countdown"
             )
         return MatchForecastResponse(
             **common,
@@ -604,19 +601,6 @@ async def play_match(
         raise HTTPException(
             status_code=error.status_code,
             detail={"code": error.code, "message": str(error)},
-        ) from error
-    except LineupCoverageError as error:
-        await session.rollback()
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "lineup_coverage_unavailable",
-                "message": (
-                    "Player data is still synchronizing for this fixture. "
-                    "Try Play again after local synchronization completes."
-                ),
-            },
-            headers={"Retry-After": "300"},
         ) from error
     response = await build_device_match_forecast_response(
         session,

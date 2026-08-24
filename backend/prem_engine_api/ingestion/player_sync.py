@@ -28,8 +28,11 @@ from prem_engine_api.providers.kickoffapi.client import (
     CapturedProviderResponse,
     KickoffApiClient,
 )
+from prem_engine_api.providers.kickoffapi.contracts import SquadEnvelope
 
 PROVIDER = "kickoffapi"
+MIN_CURRENT_SQUAD_SIZE = 15
+MAX_CURRENT_SQUAD_SIZE = 50
 
 
 @dataclass(frozen=True)
@@ -50,6 +53,38 @@ def _next_cursor(payload: object) -> str | None:
         return None
     value = meta.get("nextCursor") or meta.get("next_cursor")
     return str(value) if value not in (None, "") else None
+
+
+def _squad_request_params(season: int) -> dict[str, str | int | float | bool]:
+    """Keep squad snapshots scoped to the active season."""
+
+    return {"season": season}
+
+
+def _squad_snapshot_is_usable(payload: object, season: int) -> bool:
+    """Reject sparse or historical aggregate rosters before current-squad ingestion."""
+
+    if not isinstance(payload, dict):
+        return False
+    meta = payload.get("meta")
+    if not isinstance(meta, dict):
+        return False
+    payload_season = meta.get("season")
+    if payload_season is None or str(payload_season) != str(season):
+        return False
+    try:
+        squad = SquadEnvelope.model_validate(payload)
+    except ValueError:
+        return False
+    player_ids = {player.id for player in squad.data}
+    goalkeeper_count = sum(
+        (player.position or "").strip().casefold() in {"g", "gk", "gkp", "goalkeeper", "keeper"}
+        for player in squad.data
+    )
+    return (
+        MIN_CURRENT_SQUAD_SIZE <= len(player_ids) <= MAX_CURRENT_SQUAD_SIZE
+        and goalkeeper_count >= 1
+    )
 
 
 async def _club_targets(
@@ -256,10 +291,16 @@ async def sync_player_context(
     match_request_reserve = min(len(match_targets) * 2, max_requests - used)
     squad_request_budget = max(0, max_requests - used - match_request_reserve)
     for club_uuid, external_club_id in club_targets[:squad_request_budget]:
-        captured = await capture(f"/api/v2/teams/{external_club_id}/squad", {})
+        captured = await capture(
+            f"/api/v2/teams/{external_club_id}/squad",
+            _squad_request_params(season),
+        )
         if captured is None:
             continue
         squads_requested += 1
+        if not _squad_snapshot_is_usable(captured.payload, season):
+            fallback_targets.add(club_uuid)
+            continue
         async with session_factory.begin() as session:
             summary = await PlayerContextIngestor(session).ingest_squad(
                 captured.payload,

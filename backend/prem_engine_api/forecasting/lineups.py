@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,10 +29,15 @@ FORMATION_REQUIREMENTS: dict[PlayerPosition, int] = {
     "FWD": 3,
 }
 UNKNOWN_AVAILABILITY = 0.75
-
-
-class LineupCoverageError(RuntimeError):
-    """Raised instead of inventing players when current squad coverage is inadequate."""
+SUBSTITUTE_POSITIONS: tuple[PlayerPosition, ...] = (
+    "GK",
+    "DEF",
+    "DEF",
+    "MID",
+    "MID",
+    "FWD",
+    "FWD",
+)
 
 
 @dataclass(frozen=True)
@@ -177,26 +182,13 @@ def _select(
             key=lambda item: (item.selection_score, item.evidence, str(item.player_uuid)),
             reverse=True,
         )
-        if position == "GK" and not positioned:
-            raise LineupCoverageError("expected lineup has no identified goalkeeper")
         starters.extend(positioned[:count])
-    selected = {item.player_uuid for item in starters}
-    remaining = sorted(
-        (item for item in candidates if item.player_uuid not in selected),
-        key=lambda item: (item.selection_score, item.evidence, str(item.player_uuid)),
-        reverse=True,
-    )
-    starters.extend(remaining[: max(0, 11 - len(starters))])
-    if len(starters) != 11:
-        raise LineupCoverageError("expected lineup has fewer than 11 eligible players")
     selected = {item.player_uuid for item in starters}
     substitutes = sorted(
         (item for item in candidates if item.player_uuid not in selected),
         key=lambda item: (item.selection_score, item.evidence, str(item.player_uuid)),
         reverse=True,
     )[:7]
-    if len(substitutes) < 3:
-        raise LineupCoverageError("expected lineup has fewer than three eligible substitutes")
     return starters, substitutes
 
 
@@ -228,6 +220,101 @@ def _to_contract(
     return tuple(output)
 
 
+def _next_shirt_number(used_numbers: set[int]) -> int:
+    return next(number for number in range(1, 100) if number not in used_numbers)
+
+
+def _placeholder_player(
+    *,
+    match_uuid: UUID,
+    club_uuid: UUID,
+    club_name: str,
+    role: str,
+    slot: int,
+    ordinal: int,
+    position: PlayerPosition,
+    used_numbers: set[int],
+) -> LineupPlayer:
+    number = _next_shirt_number(used_numbers)
+    used_numbers.add(number)
+    return LineupPlayer(
+        player_uuid=uuid5(
+            NAMESPACE_URL,
+            f"prem-engine:placeholder:{match_uuid}:{club_uuid}:{role}:{slot}",
+        ),
+        name=f"[{club_name}] player {ordinal}",
+        position=position,
+        shirt_number=number,
+        shirt_number_source="presentation_slot",
+        starting_probability=0.0,
+        availability_probability=UNKNOWN_AVAILABILITY,
+    )
+
+
+def _complete_lineup(
+    *,
+    match_uuid: UUID,
+    club_uuid: UUID,
+    club_name: str,
+    short_name: str,
+    formation: str,
+    requirements: dict[PlayerPosition, int],
+    starters: list[_Candidate],
+    substitutes: list[_Candidate],
+    confidence: float,
+) -> TeamLineup:
+    """Keep observed players and deterministically fill missing presentation slots."""
+
+    used_numbers: set[int] = set()
+    starter_contracts: list[LineupPlayer] = []
+    ordinal = 1
+    for position, required in requirements.items():
+        positioned = [player for player in starters if player.position == position]
+        starter_contracts.extend(_to_contract(positioned, used_numbers=used_numbers))
+        missing = required - len(positioned)
+        for _ in range(max(0, missing)):
+            starter_contracts.append(
+                _placeholder_player(
+                    match_uuid=match_uuid,
+                    club_uuid=club_uuid,
+                    club_name=club_name,
+                    role="starter",
+                    slot=len(starter_contracts) + 1,
+                    ordinal=ordinal,
+                    position=position,
+                    used_numbers=used_numbers,
+                )
+            )
+            ordinal += 1
+
+    substitute_contracts = list(_to_contract(substitutes, used_numbers=used_numbers))
+    while len(substitute_contracts) < len(SUBSTITUTE_POSITIONS):
+        slot = len(substitute_contracts) + 1
+        substitute_contracts.append(
+            _placeholder_player(
+                match_uuid=match_uuid,
+                club_uuid=club_uuid,
+                club_name=club_name,
+                role="substitute",
+                slot=slot,
+                ordinal=ordinal,
+                position=SUBSTITUTE_POSITIONS[slot - 1],
+                used_numbers=used_numbers,
+            )
+        )
+        ordinal += 1
+
+    return TeamLineup(
+        club_uuid=club_uuid,
+        club_name=club_name,
+        short_name=short_name,
+        formation=formation,
+        starters=tuple(starter_contracts),
+        substitutes=tuple(substitute_contracts),
+        confidence=max(0.0, min(1.0, confidence)),
+    )
+
+
 async def expected_lineup_for_club(
     session: AsyncSession,
     *,
@@ -239,7 +326,7 @@ async def expected_lineup_for_club(
     kickoff_at: datetime,
     cutoff: datetime,
 ) -> tuple[TeamLineup, datetime | None]:
-    """Use only observations available before cutoff and never create fake players."""
+    """Use pre-cutoff observations and clearly label deterministic coverage placeholders."""
 
     performance_rows = list(
         (
@@ -356,19 +443,20 @@ async def expected_lineup_for_club(
             candidates.append(profile)
     requirements, formation, formation_confidence = _recent_formation_requirements(performance_rows)
     starters, substitutes = _select(candidates, requirements)
-    used_numbers: set[int] = set()
     confidence = sum(item.evidence for item in starters) / 11
     confidence *= sum(item.availability_probability for item in starters) / 11
     confidence *= 0.7 + 0.3 * formation_confidence
     return (
-        TeamLineup(
+        _complete_lineup(
+            match_uuid=match_uuid,
             club_uuid=club_uuid,
             club_name=club_name,
             short_name=short_name,
             formation=formation,
-            starters=_to_contract(starters, used_numbers=used_numbers),
-            substitutes=_to_contract(substitutes, used_numbers=used_numbers),
-            confidence=max(0.0, min(1.0, confidence)),
+            requirements=requirements,
+            starters=starters,
+            substitutes=substitutes,
+            confidence=confidence,
         ),
         latest_used,
     )

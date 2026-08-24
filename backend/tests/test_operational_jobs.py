@@ -21,7 +21,12 @@ from prem_engine_api.domain.models import (
     TransferObservation,
 )
 from prem_engine_api.ingestion.player_context import PlayerContextIngestor
-from prem_engine_api.ingestion.player_sync import _club_targets, _next_cursor
+from prem_engine_api.ingestion.player_sync import (
+    _club_targets,
+    _next_cursor,
+    _squad_request_params,
+    _squad_snapshot_is_usable,
+)
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -88,6 +93,40 @@ def test_player_context_cursor_is_tolerant_and_explicit() -> None:
     assert _next_cursor({"meta": {"next_cursor": 3}}) == "3"
     assert _next_cursor({"meta": {"nextCursor": None}}) is None
     assert _next_cursor([]) is None
+
+
+def test_squad_requests_are_scoped_to_the_active_season() -> None:
+    assert _squad_request_params(2026) == {"season": 2026}
+
+
+def test_squad_snapshots_must_be_plausible_for_the_requested_season() -> None:
+    players = [
+        {
+            "id": index,
+            "name": f"Player {index}",
+            "position": "Goalkeeper" if index == 1 else "Midfielder",
+        }
+        for index in range(1, 21)
+    ]
+    oversized = [
+        {
+            "id": index,
+            "name": f"Player {index}",
+            "position": "Goalkeeper" if index == 1 else "Midfielder",
+        }
+        for index in range(1, 52)
+    ]
+    assert _squad_snapshot_is_usable({"meta": {"season": "2026"}, "data": players}, 2026)
+    assert not _squad_snapshot_is_usable({"meta": {"season": None}, "data": players}, 2026)
+    assert not _squad_snapshot_is_usable({"meta": {"season": 2026}, "data": players[:10]}, 2026)
+    assert not _squad_snapshot_is_usable({"meta": {"season": 2026}, "data": oversized}, 2026)
+    assert not _squad_snapshot_is_usable(
+        {
+            "meta": {"season": 2026},
+            "data": [{**player, "position": "Midfielder"} for player in players],
+        },
+        2026,
+    )
 
 
 @pytest.mark.asyncio

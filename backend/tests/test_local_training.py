@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
+import joblib  # type: ignore[import-untyped]
 import pytest
 from prem_engine_api.config import Settings
 from prem_engine_api.domain.enums import FixtureStatus
@@ -21,6 +23,7 @@ from prem_engine_api.domain.models import (
 from prem_engine_api.local_training import (
     TrainingCutoff,
     _current_records,
+    _fit_goal_state,
     _write_artifact,
     next_training_cutoff,
 )
@@ -314,3 +317,64 @@ def test_local_goal_artifact_is_immutable_verified_and_idempotent(tmp_path: Path
         "season": "2026/27",
     }
     assert report["included_fixture_uuids"] == [fixture_uuid]
+
+
+def test_local_training_continues_baseline_when_raw_history_is_absent(
+    tmp_path: Path,
+) -> None:
+    config = GoalModelConfig()
+    arsenal_artifact_uuid = str(uuid4())
+    chelsea_artifact_uuid = str(uuid4())
+    arsenal_live_uuid = str(uuid4())
+    chelsea_live_uuid = str(uuid4())
+    baseline_path = tmp_path / "baseline.joblib"
+    joblib.dump(
+        {
+            "schema_version": "goal-model-artifact-v1",
+            "model_version": "goals-v1-test",
+            "current_season": "2025/26",
+            "config": asdict(config),
+            "attack": {arsenal_artifact_uuid: 0.4, chelsea_artifact_uuid: -0.2},
+            "defence": {arsenal_artifact_uuid: 0.2, chelsea_artifact_uuid: -0.1},
+            "club_names": {
+                arsenal_artifact_uuid: "Arsenal",
+                chelsea_artifact_uuid: "Chelsea",
+            },
+        },
+        baseline_path,
+    )
+    kickoff = datetime(2026, 8, 15, 14, tzinfo=UTC)
+    record = MatchRecord(
+        match_uuid=str(uuid4()),
+        season="2026/27",
+        kickoff_at=kickoff,
+        available_after=kickoff + timedelta(hours=2),
+        home_club_uuid=arsenal_live_uuid,
+        home_club="Arsenal FC",
+        away_club_uuid=chelsea_live_uuid,
+        away_club="Chelsea FC",
+        home_goals=2,
+        away_goals=0,
+        result="H",
+    )
+    cutoff = TrainingCutoff(
+        season_uuid=uuid4(),
+        season_label="2026/27",
+        matchweek=1,
+        revision=1,
+        cutoff_at=record.available_after,
+        fixture_uuids=(record.match_uuid,),
+    )
+
+    fit = _fit_goal_state(
+        HistoricalDataset((record,), "a" * 64, ("2026/27",)),
+        cutoff=cutoff,
+        baseline_path=baseline_path,
+        config=config,
+    )
+
+    assert fit.strategy == "approved_baseline_continuation"
+    assert fit.dataset.records[0].home_club_uuid == arsenal_artifact_uuid
+    assert fit.dataset.records[0].away_club_uuid == chelsea_artifact_uuid
+    assert arsenal_artifact_uuid in fit.attack
+    assert arsenal_live_uuid not in fit.attack

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
+from prem_engine_modeling.goals import normalize_club_identity
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -266,6 +267,13 @@ class FixtureIngestor:
                 select(Club).where(func.lower(Club.canonical_name) == team.name.casefold())
             )
         )
+        if not matches:
+            identity = normalize_club_identity(team.name)
+            matches = [
+                club
+                for club in await self._session.scalars(select(Club))
+                if normalize_club_identity(club.canonical_name) == identity
+            ]
         if len(matches) > 1:
             await self._queue_review(
                 entity_type="club",

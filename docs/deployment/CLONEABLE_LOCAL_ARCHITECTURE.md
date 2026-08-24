@@ -422,7 +422,10 @@ workers from performing the same operation, and the setup endpoint exposes progr
 the next attempt, and secret-free failure codes.
 
 The worker rebuilds the complete Phase 7 Poisson/Dixon-Coles model at every eligible matchweek
-cutoff, including chronological catch-up after downtime. Each successful registry entry records a
+cutoff when normalized historical rows are installed. A clone without those optional raw rows
+continues the checksum-approved historical snapshot and applies completed current-season results,
+so historical club strengths are never replaced by a one-matchweek-only fit. This also supports
+chronological catch-up after downtime. Each successful registry entry records the training strategy, a
 cutoff revision, the exact matchweek fixture UUIDs, data and fixture-set checksums, feature schema,
 runtime versions, artifact checksum, and provenance-report checksum. Later result corrections or a
 voided played-then-rescheduled result create immutable replacement revisions and cascade through

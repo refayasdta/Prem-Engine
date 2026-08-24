@@ -59,6 +59,37 @@ def test_home_advantage_update_and_season_carryover() -> None:
     assert model.attack_snapshot()[alpha] == pytest.approx(previous_attack * 0.5)
 
 
+def test_snapshot_resolves_live_provider_suffixes_to_learned_clubs() -> None:
+    arsenal_artifact_uuid = club_uuid("artifact-arsenal")
+    chelsea_artifact_uuid = club_uuid("artifact-chelsea")
+    model = DynamicGoalModel.from_snapshot(
+        config=GoalModelConfig(),
+        attack={arsenal_artifact_uuid: 0.4, chelsea_artifact_uuid: -0.2},
+        defence={arsenal_artifact_uuid: 0.2, chelsea_artifact_uuid: -0.1},
+        current_season="2025/26",
+        club_names={
+            arsenal_artifact_uuid: "Arsenal",
+            chelsea_artifact_uuid: "Chelsea",
+        },
+    )
+
+    assert model.resolve_club_uuid(club_uuid("live-arsenal"), "Arsenal FC") == (
+        arsenal_artifact_uuid
+    )
+    assert model.resolve_club_uuid(club_uuid("live-chelsea"), "Chelsea F.C.") == (
+        chelsea_artifact_uuid
+    )
+    assert model.resolve_club_uuid(club_uuid("unknown"), "Unknown United FC") == club_uuid(
+        "unknown"
+    )
+
+    learned = model.predict(arsenal_artifact_uuid, chelsea_artifact_uuid)
+    neutral = model.predict(club_uuid("unknown-home"), club_uuid("unknown-away"))
+    assert learned.outcome_probabilities.home != pytest.approx(
+        neutral.outcome_probabilities.home
+    )
+
+
 @pytest.mark.parametrize(
     ("values", "message"),
     [

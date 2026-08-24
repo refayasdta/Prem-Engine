@@ -7,7 +7,7 @@ import json
 import platform
 import shutil
 import tempfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
@@ -17,7 +17,10 @@ from uuid import UUID
 
 import joblib  # type: ignore[import-untyped]
 from prem_engine_modeling.data import HistoricalDataset, MatchRecord, load_historical_dataset
-from prem_engine_modeling.goal_artifacts import GOAL_ARTIFACT_SCHEMA_VERSION
+from prem_engine_modeling.goal_artifacts import (
+    GOAL_ARTIFACT_SCHEMA_VERSION,
+    load_goal_artifact,
+)
 from prem_engine_modeling.goal_training import walk_forward_goals
 from prem_engine_modeling.goals import GoalModelConfig
 from sqlalchemy import func, select, update
@@ -74,6 +77,15 @@ class _WrittenArtifact:
     model_path: Path
     model_checksum: str
     report_checksum: str
+
+
+@dataclass(frozen=True)
+class _GoalFit:
+    dataset: HistoricalDataset
+    attack: dict[str, float]
+    defence: dict[str, float]
+    club_names: dict[str, str]
+    strategy: str
 
 
 def _sha256(path: Path) -> str:
@@ -317,6 +329,63 @@ async def _training_dataset(
     )
 
 
+def _fit_goal_state(
+    dataset: HistoricalDataset,
+    *,
+    cutoff: TrainingCutoff,
+    baseline_path: Path,
+    config: GoalModelConfig,
+) -> _GoalFit:
+    """Refit full history when present, otherwise continue the approved baseline snapshot."""
+
+    baseline = load_goal_artifact(baseline_path)
+    records = tuple(
+        replace(
+            record,
+            home_club_uuid=baseline.resolve_club_uuid(
+                record.home_club_uuid, record.home_club
+            ),
+            away_club_uuid=baseline.resolve_club_uuid(
+                record.away_club_uuid, record.away_club
+            ),
+        )
+        for record in dataset.records
+    )
+    canonical = HistoricalDataset(
+        records=records,
+        checksum=_dataset_checksum(records),
+        seasons=dataset.seasons,
+    )
+    club_names = baseline.club_names_snapshot()
+    for record in records:
+        club_names.setdefault(record.home_club_uuid, record.home_club)
+        club_names.setdefault(record.away_club_uuid, record.away_club)
+
+    has_prior_season_history = any(
+        record.season != cutoff.season_label for record in records
+    )
+    if has_prior_season_history:
+        output = walk_forward_goals(canonical, config=config, score_seasons=())
+        return _GoalFit(
+            dataset=canonical,
+            attack=output.final_attack,
+            defence=output.final_defence,
+            club_names=club_names,
+            strategy="full_history_refit",
+        )
+
+    baseline.begin_season(cutoff.season_label)
+    for record in sorted(records, key=lambda item: (item.available_after, item.match_uuid)):
+        baseline.update(record)
+    return _GoalFit(
+        dataset=canonical,
+        attack=baseline.attack_snapshot(),
+        defence=baseline.defence_snapshot(),
+        club_names=club_names,
+        strategy="approved_baseline_continuation",
+    )
+
+
 def _model_version(
     dataset: HistoricalDataset,
     *,
@@ -350,6 +419,8 @@ def _write_artifact(
     defence: dict[str, float],
     runtime_versions: dict[str, str],
     created_at: datetime,
+    club_names: dict[str, str] | None = None,
+    training_strategy: str = "full_history_refit",
 ) -> _WrittenArtifact:
     artifact_root = settings.local_model_root / "goals"
     artifact_root.mkdir(parents=True, exist_ok=True)
@@ -370,10 +441,10 @@ def _write_artifact(
 
     temporary = Path(tempfile.mkdtemp(prefix=f".{version}-", dir=artifact_root))
     try:
-        club_names: dict[str, str] = {}
+        artifact_club_names = dict(club_names or {})
         for record in dataset.records:
-            club_names[record.home_club_uuid] = record.home_club
-            club_names[record.away_club_uuid] = record.away_club
+            artifact_club_names.setdefault(record.home_club_uuid, record.home_club)
+            artifact_club_names.setdefault(record.away_club_uuid, record.away_club)
         payload: dict[str, Any] = {
             "schema_version": GOAL_ARTIFACT_SCHEMA_VERSION,
             "model_version": version,
@@ -384,7 +455,7 @@ def _write_artifact(
             "config": asdict(config),
             "attack": attack,
             "defence": defence,
-            "club_names": dict(sorted(club_names.items())),
+            "club_names": dict(sorted(artifact_club_names.items())),
             "local_cutoff": {
                 "season": cutoff.season_label,
                 "matchweek": cutoff.matchweek,
@@ -409,6 +480,7 @@ def _write_artifact(
             "cutoff": payload["local_cutoff"],
             "training_data_checksum": dataset.checksum,
             "training_rows": len(dataset.records),
+            "training_strategy": training_strategy,
             "fixture_set_checksum": _fixture_checksum(cutoff.fixture_uuids),
             "included_fixture_uuids": list(cutoff.fixture_uuids),
             "feature_schema": list(FEATURE_SCHEMA),
@@ -447,6 +519,13 @@ async def train_next_local_goal_model(
             return None
         dataset = await _training_dataset(session, cutoff=cutoff)
     config = _load_baseline_config(settings.goal_model_path)
+    fit = _fit_goal_state(
+        dataset,
+        cutoff=cutoff,
+        baseline_path=settings.goal_model_path,
+        config=config,
+    )
+    dataset = fit.dataset
     model_version = _model_version(dataset, cutoff=cutoff, config=config)
     fixture_checksum = _fixture_checksum(cutoff.fixture_uuids)
     runtime_versions = _runtime_versions()
@@ -497,16 +576,17 @@ async def train_next_local_goal_model(
         artifact_uuid = registry.artifact_uuid
 
     try:
-        output = walk_forward_goals(dataset, config=config, score_seasons=())
         written = _write_artifact(
             settings=settings,
             cutoff=cutoff,
             dataset=dataset,
             config=config,
-            attack=output.final_attack,
-            defence=output.final_defence,
+            attack=fit.attack,
+            defence=fit.defence,
             runtime_versions=runtime_versions,
             created_at=started_at,
+            club_names=fit.club_names,
+            training_strategy=fit.strategy,
         )
     except Exception:
         async with sessions.begin() as session:

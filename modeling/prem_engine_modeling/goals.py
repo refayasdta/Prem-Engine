@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+import re
+import unicodedata
 from dataclasses import dataclass
 
 from prem_engine_modeling.data import MatchRecord
@@ -12,6 +14,29 @@ MIN_EXPECTED_GOALS = 0.05
 MAX_EXPECTED_GOALS = 8.0
 MAX_STRENGTH = 1.5
 DEFAULT_SCORE_LIMIT = 10
+
+
+def normalize_club_identity(value: str) -> str:
+    """Normalize harmless provider naming differences without fuzzy matching."""
+
+    decomposed = unicodedata.normalize("NFKD", value)
+    ascii_value = "".join(
+        character for character in decomposed if not unicodedata.combining(character)
+    )
+    tokens = re.findall(r"[a-z0-9]+", ascii_value.casefold())
+    suffixes = (
+        ("association", "football", "club"),
+        ("football", "club"),
+        ("a", "f", "c"),
+        ("f", "c"),
+    )
+    for suffix in suffixes:
+        if tuple(tokens[-len(suffix) :]) == suffix:
+            del tokens[-len(suffix) :]
+            break
+    if tokens and tokens[-1] in {"fc", "afc"}:
+        tokens.pop()
+    return "".join(tokens)
 
 
 @dataclass(frozen=True, order=True)
@@ -150,6 +175,7 @@ class DynamicGoalModel:
         self.config = config
         self._attack: dict[str, float] = {}
         self._defence: dict[str, float] = {}
+        self._club_names: dict[str, str] = {}
         self._current_season: str | None = None
 
     @classmethod
@@ -160,12 +186,27 @@ class DynamicGoalModel:
         attack: dict[str, float],
         defence: dict[str, float],
         current_season: str,
+        club_names: dict[str, str] | None = None,
     ) -> DynamicGoalModel:
         model = cls(config)
         model._attack = dict(attack)
         model._defence = dict(defence)
+        model._club_names = dict(club_names or {})
         model._current_season = current_season
         return model
+
+    def resolve_club_uuid(self, club_uuid: str, club_name: str) -> str:
+        """Resolve a live club to its artifact identity using a conservative name bridge."""
+
+        if club_uuid in self._attack or club_uuid in self._defence:
+            return club_uuid
+        identity = normalize_club_identity(club_name)
+        candidates = [
+            artifact_uuid
+            for artifact_uuid, artifact_name in self._club_names.items()
+            if normalize_club_identity(artifact_name) == identity
+        ]
+        return candidates[0] if len(candidates) == 1 else club_uuid
 
     def begin_season(self, season: str) -> None:
         if self._current_season is not None and season != self._current_season:
@@ -231,6 +272,9 @@ class DynamicGoalModel:
 
     def defence_snapshot(self) -> dict[str, float]:
         return dict(sorted(self._defence.items()))
+
+    def club_names_snapshot(self) -> dict[str, str]:
+        return dict(sorted(self._club_names.items()))
 
     @property
     def current_season(self) -> str | None:

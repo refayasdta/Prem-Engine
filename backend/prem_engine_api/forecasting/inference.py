@@ -147,6 +147,12 @@ class OfficialArtifactForecastFactory:
             raise ArtifactConfigurationError("configured goal artifact has incomplete metadata")
         goal_model = load_goal_artifact(goal_path)
         goal_model.begin_season(season.label)
+        home_model_uuid = goal_model.resolve_club_uuid(
+            str(home.club_uuid), home.canonical_name
+        )
+        away_model_uuid = goal_model.resolve_club_uuid(
+            str(away.club_uuid), away.canonical_name
+        )
         raw_local_cutoff = goal_metadata.get("local_cutoff")
         artifact_cutoff: datetime | None = None
         if isinstance(raw_local_cutoff, dict):
@@ -196,9 +202,13 @@ class OfficialArtifactForecastFactory:
                         season=season.label,
                         kickoff_at=prior_match.current_kickoff_at,
                         available_after=actual.observed_at,
-                        home_club_uuid=str(prior_match.home_club_uuid),
+                        home_club_uuid=goal_model.resolve_club_uuid(
+                            str(prior_match.home_club_uuid), prior_home.canonical_name
+                        ),
                         home_club=prior_home.canonical_name,
-                        away_club_uuid=str(prior_match.away_club_uuid),
+                        away_club_uuid=goal_model.resolve_club_uuid(
+                            str(prior_match.away_club_uuid), prior_away.canonical_name
+                        ),
                         away_club=prior_away.canonical_name,
                         home_goals=actual.home_goals,
                         away_goals=actual.away_goals,
@@ -211,7 +221,7 @@ class OfficialArtifactForecastFactory:
                 if latest_source is None
                 else max(latest_source, actual.observed_at)
             )
-        goal_forecast = goal_model.predict(str(home.club_uuid), str(away.club_uuid))
+        goal_forecast = goal_model.predict(home_model_uuid, away_model_uuid)
 
         home_lineup, home_latest = await expected_lineup_for_club(
             session,

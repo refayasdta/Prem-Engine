@@ -22,7 +22,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def fixture_payload(
-    *, status: str = "NS", home_score: int | None = None
+    *,
+    status: str = "NS",
+    home_score: int | None = None,
+    home_name: str = "Phase Four Home",
+    away_name: str = "Phase Four Away",
 ) -> dict[str, object]:
     return {
         "data": [
@@ -37,8 +41,8 @@ def fixture_payload(
                     "season": 2026,
                     "country": "England",
                 },
-                "homeTeam": {"id": "t_phase4_home", "name": "Phase Four Home"},
-                "awayTeam": {"id": "t_phase4_away", "name": "Phase Four Away"},
+                "homeTeam": {"id": "t_phase4_home", "name": home_name},
+                "awayTeam": {"id": "t_phase4_away", "name": away_name},
                 "homeScore": home_score,
                 "awayScore": 1 if home_score is not None else None,
             }
@@ -114,3 +118,25 @@ async def test_fixture_ingestion_is_idempotent_and_versions_corrections(
     assert sum(revision.accepted for revision in revisions) == 1
     assert next(revision for revision in revisions if revision.accepted).home_goals == 3
     assert prediction.state is PredictionState.EVALUATED
+
+
+@pytest.mark.asyncio
+async def test_fixture_ingestion_reuses_clubs_across_provider_suffixes(
+    db_session: AsyncSession,
+) -> None:
+    arsenal = Club(canonical_name="Arsenal", short_name="Arsenal")
+    chelsea = Club(canonical_name="Chelsea", short_name="Chelsea")
+    db_session.add_all((arsenal, chelsea))
+    await db_session.flush()
+
+    summary = await FixtureIngestor(db_session).ingest(
+        fixture_payload(home_name="Arsenal FC", away_name="Chelsea F.C."),
+        observed_at=datetime(2026, 8, 7, tzinfo=UTC),
+    )
+
+    assert summary.created == 1
+    match = await db_session.scalar(select(Match))
+    assert match is not None
+    assert match.home_club_uuid == arsenal.club_uuid
+    assert match.away_club_uuid == chelsea.club_uuid
+    assert await db_session.scalar(select(func.count()).select_from(Club)) == 2

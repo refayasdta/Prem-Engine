@@ -176,4 +176,8 @@ def load_goal_artifact(path: Path) -> DynamicGoalModel:
         attack={str(key): float(value) for key, value in attack_values.items()},
         defence={str(key): float(value) for key, value in defence_values.items()},
         current_season=current_season,
+        club_names={
+            str(key): str(value)
+            for key, value in cast(dict[str, Any], payload.get("club_names") or {}).items()
+        },
     )

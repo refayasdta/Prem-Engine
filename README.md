@@ -2,7 +2,7 @@
 
 Prem Engine is a self-contained Premier League forecasting and match-simulation application that
 runs on your own computer. It synchronizes fixtures and results, forecasts scores and match
-outcomes with the approved Phase 7 model, creates a saved simulation when a user presses Play, and
+outcomes with the approved Optimatch model, creates a saved simulation when a user presses Play, and
 compares those predictions with real results. Each installation owns its database, models, and
 simulation history; no Prem Engine cloud account or hosted server is required.
 
@@ -187,7 +187,7 @@ validation finish successfully. If training fails, the last verified model remai
 
 ### From a forecast to a simulated match
 
-The Phase 7 model supplies expected goals, outcome probabilities, and the scoreline distribution.
+The Optimatch model supplies expected goals, outcome probabilities, and the scoreline distribution.
 The approved Phase 12 models or documented safe fallbacks supply supported detailed-statistic
 expectations such as shots, corners, fouls, and cards. Prem Engine then uses one saved random seed
 to build a consistent match payload: the final score, events, lineups, commentary, and statistics

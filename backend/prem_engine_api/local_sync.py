@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from prem_engine_api.config import Settings
 from prem_engine_api.ingestion.fixtures import FixtureIngestionSummary, FixtureIngestor
 from prem_engine_api.providers.kickoffapi.client import KickoffApiClient
+from prem_engine_api.providers.kickoffapi.contracts import FixtureEnvelope, ProviderFixture
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,7 @@ async def synchronize_local_fixtures(
     progress = FixtureSyncProgress()
     provider_requests: list[UUID] = []
     raw_fetches: list[UUID] = []
+    fixtures: list[ProviderFixture] = []
     completed = False
 
     for _ in range(settings.local_fixture_sync_max_pages):
@@ -107,13 +109,10 @@ async def synchronize_local_fixtures(
             params["cursor"] = cursor
 
         captured = await client.get("/api/v2/fixtures", params=params)
-        async with session_factory.begin() as session:
-            summary = await FixtureIngestor(session).ingest(captured.payload)
+        envelope = FixtureEnvelope.model_validate(captured.payload)
+        fixtures.extend(envelope.data)
         provider_requests.append(captured.provider_request_uuid)
         raw_fetches.append(captured.raw_fetch_uuid)
-        progress = _add_progress(progress, summary)
-        if progress_callback is not None:
-            await progress_callback(progress)
 
         following = next_cursor(captured.payload)
         if following is None:
@@ -128,6 +127,18 @@ async def synchronize_local_fixtures(
         raise RuntimeError(
             "fixture synchronization exceeded the configured page limit before completion"
         )
+    async with session_factory.begin() as session:
+        summary = await FixtureIngestor(session).ingest(FixtureEnvelope(data=fixtures))
+    progress = FixtureSyncProgress(
+        pages_processed=len(provider_requests),
+        records_received=summary.received,
+        records_created=summary.created,
+        records_updated=summary.updated,
+        records_unchanged=summary.unchanged,
+        records_pending_review=summary.pending_review,
+    )
+    if progress_callback is not None:
+        await progress_callback(progress)
     return LocalFixtureSyncOutcome(
         full_season=full_season,
         season=season,

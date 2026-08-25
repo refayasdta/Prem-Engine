@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from prem_engine_api.domain.enums import PredictionState
 from prem_engine_api.domain.models import (
     ActualResultRevision,
     Club,
+    DeviceSimulation,
+    FixtureScheduleRevision,
     Match,
     MatchExternalReference,
     PredictionVersion,
@@ -140,3 +143,49 @@ async def test_fixture_ingestion_reuses_clubs_across_provider_suffixes(
     assert match.home_club_uuid == arsenal.club_uuid
     assert match.away_club_uuid == chelsea.club_uuid
     assert await db_session.scalar(select(func.count()).select_from(Club)) == 2
+
+
+@pytest.mark.asyncio
+async def test_duplicate_local_clock_mirror_does_not_reschedule_or_void_play(
+    db_session: AsyncSession,
+) -> None:
+    observed = datetime(2026, 8, 21, 2, tzinfo=UTC)
+    canonical = fixture_payload(status="FT", home_score=3)
+    fixture = canonical["data"][0]
+    assert isinstance(fixture, dict)
+    fixture["date"] = "2026-08-21T19:00:00Z"
+    fixture["time"] = None
+    mirror = {
+        **fixture,
+        "id": "fx_phase4_local_clock",
+        "date": "2026-08-21T20:00:00Z",
+        "time": "20:00",
+        "homeTeam": {"id": "t_phase4_home_alias", "name": "Phase Four Home FC"},
+    }
+    ingestor = FixtureIngestor(db_session)
+    await ingestor.ingest({"data": [mirror, fixture]}, observed_at=observed)
+
+    match = await db_session.scalar(select(Match))
+    revision = await db_session.scalar(select(FixtureScheduleRevision))
+    assert match is not None
+    assert revision is not None
+    play = DeviceSimulation(
+        device_uuid=uuid4(),
+        match_uuid=match.match_uuid,
+        schedule_revision_uuid=revision.revision_uuid,
+        schedule_revision_number=revision.revision_number,
+        state="played",
+        play_classification="pre_kickoff_user_simulation",
+        generated_at=observed,
+        home_goals=2,
+        away_goals=1,
+        presentation_started_at=observed,
+        presentation_duration_seconds=60,
+    )
+    db_session.add(play)
+    await db_session.flush()
+
+    await ingestor.ingest({"data": [fixture, mirror]}, observed_at=observed)
+    assert match.current_kickoff_at == datetime(2026, 8, 21, 19, tzinfo=UTC)
+    assert play.state == "played"
+    assert await db_session.scalar(select(func.count()).select_from(FixtureScheduleRevision)) == 1

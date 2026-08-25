@@ -65,6 +65,11 @@ class ProviderFixture(BaseModel):
 
     id: str
     date: datetime
+    # KickoffAPI currently emits a second, local-clock mirror for many Premier
+    # League fixtures. The mirror has this field populated while its `date`
+    # value is incorrectly labelled as UTC. Keep the field typed so fixture
+    # reconciliation can prefer the canonical UTC record.
+    time: str | None = None
     league: ProviderLeague
     home: ProviderTeam | None = None
     away: ProviderTeam | None = None

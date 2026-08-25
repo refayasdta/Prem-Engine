@@ -57,6 +57,61 @@ def matchweek_from_round(round_label: str | None) -> int | None:
     return value if 1 <= value <= 60 else None
 
 
+def _provider_fixture_identity(
+    fixture: ProviderFixture,
+) -> tuple[str, int | None, int | str, str, str]:
+    """Identify one physical league fixture without trusting unstable provider IDs."""
+
+    matchweek = matchweek_from_round(fixture.round)
+    round_identity: int | str = (
+        matchweek
+        if matchweek is not None
+        else (fixture.round or fixture.group or "unassigned").strip().casefold()
+    )
+    return (
+        fixture.league.id,
+        fixture.league.season,
+        round_identity,
+        normalize_club_identity(fixture.normalized_home.name),
+        normalize_club_identity(fixture.normalized_away.name),
+    )
+
+
+def _provider_fixture_rank(fixture: ProviderFixture) -> tuple[bool, bool, bool, bool, float, str]:
+    """Rank duplicate feed rows deterministically, independent of response order."""
+
+    status = map_fixture_status(fixture.status_code)
+    has_score = (
+        fixture.normalized_home_score is not None and fixture.normalized_away_score is not None
+    )
+    terminal_with_score = status in (FixtureStatus.FINISHED, FixtureStatus.AWARDED) and has_score
+    known_status = fixture.status_code.casefold() not in {"", "unknown"}
+    # The canonical KickoffAPI record carries a real UTC `date` and no separate
+    # local-clock `time`. Mirrored rows populate `time`; during British Summer
+    # Time their local clock is incorrectly repeated as a UTC timestamp. Prefer
+    # the canonical row first, then the most complete record, with stable
+    # fallbacks for the few fixtures for which only a mirror is available.
+    return (
+        fixture.time is None,
+        terminal_with_score,
+        has_score,
+        known_status,
+        -fixture.date.timestamp(),
+        fixture.id,
+    )
+
+
+def select_canonical_provider_fixtures(
+    fixtures: list[ProviderFixture],
+) -> tuple[ProviderFixture, ...]:
+    """Collapse provider aliases and local-clock mirrors to one row per fixture."""
+
+    grouped: dict[tuple[str, int | None, int | str, str, str], list[ProviderFixture]] = {}
+    for fixture in fixtures:
+        grouped.setdefault(_provider_fixture_identity(fixture), []).append(fixture)
+    return tuple(max(candidates, key=_provider_fixture_rank) for candidates in grouped.values())
+
+
 @dataclass(frozen=True)
 class FixtureIngestionSummary:
     received: int
@@ -81,7 +136,8 @@ class FixtureIngestor:
         updated = 0
         unchanged = 0
         pending_review = 0
-        for fixture in envelope.data:
+        fixtures = select_canonical_provider_fixtures(envelope.data)
+        for fixture in fixtures:
             result = await self._ingest_fixture(fixture, observed_at=effective_observed_at)
             if result == "created":
                 created += 1

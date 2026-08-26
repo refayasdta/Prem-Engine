@@ -66,9 +66,7 @@ async def build_setup_status(
     )
     provider_configured = settings.kickoff_api_key is not None
     if data_current:
-        state: Literal[
-            "setup_required", "awaiting_sync", "syncing", "current", "stale"
-        ] = "current"
+        state: Literal["setup_required", "awaiting_sync", "syncing", "current", "stale"] = "current"
     elif worker_state is not None and worker_state.status == "syncing":
         state = "syncing"
     elif fixture_count > 0:

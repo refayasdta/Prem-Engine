@@ -298,9 +298,7 @@ class PlayerContextIngestor:
                 player = row.get("player")
                 nested_player_id = player.get("id") if isinstance(player, dict) else None
                 flat_player_id = row.get("playerId")
-                if row.get("date") is None or (
-                    nested_player_id is None and flat_player_id is None
-                ):
+                if row.get("date") is None or (nested_player_id is None and flat_player_id is None):
                     placeholder_rows += 1
                     continue
                 if nested_player_id is None and flat_player_id is not None:

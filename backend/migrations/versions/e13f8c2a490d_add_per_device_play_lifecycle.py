@@ -47,9 +47,7 @@ def upgrade() -> None:
         sa.Column("void_reason", sa.String(length=120), nullable=True),
         sa.Column("feature_cutoff_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("latest_source_observed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column(
-            "feature_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
+        sa.Column("feature_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("feature_snapshot_checksum", sa.String(length=64), nullable=True),
         sa.Column("model_version", sa.String(length=120), nullable=True),
         sa.Column("statistics_model_version", sa.String(length=120), nullable=True),
@@ -65,9 +63,7 @@ def upgrade() -> None:
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=True,
         ),
-        sa.Column(
-            "expected_lineups", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
+        sa.Column("expected_lineups", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("random_seed", sa.Integer(), nullable=True),
         sa.Column("home_goals", sa.SmallInteger(), nullable=True),
         sa.Column("away_goals", sa.SmallInteger(), nullable=True),
@@ -113,9 +109,7 @@ def upgrade() -> None:
             "state IN ('played', 'missed', 'void')",
             name=op.f("ck_device_simulations_valid_state"),
         ),
-        sa.ForeignKeyConstraint(
-            ["match_uuid"], ["matches.match_uuid"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["match_uuid"], ["matches.match_uuid"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["model_artifact_uuid"],
             ["local_model_artifacts.artifact_uuid"],

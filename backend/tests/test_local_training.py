@@ -24,6 +24,7 @@ from prem_engine_api.local_training import (
     TrainingCutoff,
     _current_records,
     _fit_goal_state,
+    _training_dataset,
     _write_artifact,
     next_training_cutoff,
 )
@@ -253,9 +254,7 @@ async def test_cutoff_replays_the_latest_result_known_at_that_time(
     )
     await db_session.flush()
 
-    corrected_cutoff = await next_training_cutoff(
-        db_session, season_uuid=season.season_uuid
-    )
+    corrected_cutoff = await next_training_cutoff(db_session, season_uuid=season.season_uuid)
     assert corrected_cutoff is not None
     assert corrected_cutoff.matchweek == 1
     assert corrected_cutoff.revision == 2
@@ -317,6 +316,51 @@ def test_local_goal_artifact_is_immutable_verified_and_idempotent(tmp_path: Path
         "season": "2026/27",
     }
     assert report["included_fixture_uuids"] == [fixture_uuid]
+
+
+@pytest.mark.asyncio
+async def test_training_dataset_uses_current_results_when_history_is_empty(
+    db_session: AsyncSession,
+) -> None:
+    season, home, away = await _seed_season(db_session)
+    kickoff = datetime(2026, 8, 15, 14, tzinfo=UTC)
+    match = await _seed_match(
+        db_session,
+        season=season,
+        home=home,
+        away=away,
+        matchweek=1,
+        kickoff=kickoff,
+        status=FixtureStatus.FINISHED,
+    )
+    observed_at = kickoff + timedelta(hours=2)
+    db_session.add(
+        _result(
+            match,
+            revision=1,
+            observed_at=observed_at,
+            home_goals=2,
+            accepted=True,
+        )
+    )
+    await db_session.flush()
+    cutoff = TrainingCutoff(
+        season_uuid=season.season_uuid,
+        season_label=season.label,
+        matchweek=1,
+        revision=1,
+        cutoff_at=observed_at,
+        fixture_uuids=(str(match.match_uuid),),
+    )
+
+    dataset = await _training_dataset(db_session, cutoff=cutoff)
+
+    assert dataset.seasons == ("2026/27",)
+    assert len(dataset.records) == 1
+    assert dataset.records[0].match_uuid == str(match.match_uuid)
+    assert dataset.records[0].home_goals == 2
+    assert dataset.records[0].away_goals == 1
+    assert len(dataset.checksum) == 64
 
 
 def test_local_training_continues_baseline_when_raw_history_is_absent(

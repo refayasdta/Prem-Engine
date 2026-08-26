@@ -66,9 +66,7 @@ class PlayOutcome:
 
 
 def _json_checksum(payload: Any) -> str:
-    body = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), allow_nan=False
-    ).encode()
+    body = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     return hashlib.sha256(body).hexdigest()
 
 
@@ -172,10 +170,9 @@ async def load_play_context(
         )
         if simulation is None and record_missed:
             _, closes_at = play_window(revision)
-            if (
-                now > closes_at
-                and revision.canonical_status
-                not in (FixtureStatus.POSTPONED, FixtureStatus.CANCELLED)
+            if now > closes_at and revision.canonical_status not in (
+                FixtureStatus.POSTPONED,
+                FixtureStatus.CANCELLED,
             ):
                 simulation = DeviceSimulation(
                     device_uuid=device_uuid,
@@ -211,9 +208,7 @@ def _raise_if_ineligible(context: PlayContext, *, now: datetime) -> None:
             status_code=409,
         )
     if revision.canonical_status is FixtureStatus.CANCELLED:
-        raise UserPlayError(
-            "fixture_cancelled", "This fixture was cancelled.", status_code=409
-        )
+        raise UserPlayError("fixture_cancelled", "This fixture was cancelled.", status_code=409)
     if (
         match.identity_review_state is not IdentityReviewState.RESOLVED
         or match.kickoff_precision is not KickoffPrecision.EXACT
@@ -288,8 +283,7 @@ async def play_device_simulation(
     package = await factory.build(session, match_uuid=match_uuid, cutoff=cutoff)
     outcome = package.forecast
     seed_material = (
-        f"{device_uuid}:{match_uuid}:{revision.revision_uuid}:"
-        f"{outcome.outcome_model_version}"
+        f"{device_uuid}:{match_uuid}:{revision.revision_uuid}:{outcome.outcome_model_version}"
     ).encode()
     random_seed = int.from_bytes(hashlib.sha256(seed_material).digest()[:4], "big")
     random_seed &= 0x7FFFFFFF

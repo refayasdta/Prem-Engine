@@ -52,12 +52,8 @@ def upgrade() -> None:
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
         ),
-        sa.Column(
-            "feature_schema", postgresql.JSONB(astext_type=sa.Text()), nullable=False
-        ),
-        sa.Column(
-            "runtime_versions", postgresql.JSONB(astext_type=sa.Text()), nullable=False
-        ),
+        sa.Column("feature_schema", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("runtime_versions", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("artifact_path", sa.Text(), nullable=True),
         sa.Column("model_checksum", sa.String(length=64), nullable=True),
         sa.Column("report_checksum", sa.String(length=64), nullable=True),
@@ -86,13 +82,9 @@ def upgrade() -> None:
             "status IN ('running', 'succeeded', 'failed')",
             name=op.f("ck_local_model_artifacts_valid_status"),
         ),
-        sa.ForeignKeyConstraint(
-            ["season_uuid"], ["seasons.season_uuid"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["season_uuid"], ["seasons.season_uuid"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("artifact_uuid"),
-        sa.UniqueConstraint(
-            "model_type", "season_uuid", "cutoff_matchweek", "cutoff_revision"
-        ),
+        sa.UniqueConstraint("model_type", "season_uuid", "cutoff_matchweek", "cutoff_revision"),
         sa.UniqueConstraint("model_version"),
     )
     op.create_index(
@@ -125,12 +117,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("uq_local_model_artifacts_active_type", table_name="local_model_artifacts")
     op.drop_index(op.f("ix_local_model_artifacts_status"), table_name="local_model_artifacts")
-    op.drop_index(
-        op.f("ix_local_model_artifacts_season_uuid"), table_name="local_model_artifacts"
-    )
-    op.drop_index(
-        op.f("ix_local_model_artifacts_model_type"), table_name="local_model_artifacts"
-    )
+    op.drop_index(op.f("ix_local_model_artifacts_season_uuid"), table_name="local_model_artifacts")
+    op.drop_index(op.f("ix_local_model_artifacts_model_type"), table_name="local_model_artifacts")
     op.drop_table("local_model_artifacts")
     op.drop_column("actual_result_revisions", "voided_at")
     op.drop_column("actual_result_revisions", "training_eligible")

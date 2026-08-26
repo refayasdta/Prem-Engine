@@ -76,9 +76,7 @@ class OfficialArtifactForecastFactory:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def _goal_artifact(
-        self, session: AsyncSession, *, cutoff: datetime
-    ) -> tuple[Path, str]:
+    async def _goal_artifact(self, session: AsyncSession, *, cutoff: datetime) -> tuple[Path, str]:
         path = self._settings.goal_model_path
         checksum = self._settings.goal_model_sha256
         if self._settings.deployment_mode == "local":
@@ -147,12 +145,8 @@ class OfficialArtifactForecastFactory:
             raise ArtifactConfigurationError("configured goal artifact has incomplete metadata")
         goal_model = load_goal_artifact(goal_path)
         goal_model.begin_season(season.label)
-        home_model_uuid = goal_model.resolve_club_uuid(
-            str(home.club_uuid), home.canonical_name
-        )
-        away_model_uuid = goal_model.resolve_club_uuid(
-            str(away.club_uuid), away.canonical_name
-        )
+        home_model_uuid = goal_model.resolve_club_uuid(str(home.club_uuid), home.canonical_name)
+        away_model_uuid = goal_model.resolve_club_uuid(str(away.club_uuid), away.canonical_name)
         raw_local_cutoff = goal_metadata.get("local_cutoff")
         artifact_cutoff: datetime | None = None
         if isinstance(raw_local_cutoff, dict):

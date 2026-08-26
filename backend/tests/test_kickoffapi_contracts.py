@@ -119,12 +119,8 @@ def test_lineup_contract_normalizes_numeric_provider_ids_to_strings() -> None:
             "data": [
                 {
                     "team": {"id": 42, "name": "Home"},
-                    "startXI": [
-                        {"player": {"id": 19465, "name": "Goalkeeper"}, "pos": "G"}
-                    ],
-                    "substitutes": [
-                        {"player": {"id": 2273, "name": "Substitute"}, "pos": "M"}
-                    ],
+                    "startXI": [{"player": {"id": 19465, "name": "Goalkeeper"}, "pos": "G"}],
+                    "substitutes": [{"player": {"id": 2273, "name": "Substitute"}, "pos": "M"}],
                 }
             ]
         },

@@ -310,8 +310,12 @@ async def _training_dataset(
 ) -> HistoricalDataset:
     with tempfile.TemporaryDirectory(prefix="prem-engine-history-") as temporary:
         export_path = Path(temporary) / "training.csv"
-        await export_training_matches(session, export_path)
-        historical = load_historical_dataset(export_path)
+        export = await export_training_matches(session, export_path)
+        historical = (
+            load_historical_dataset(export_path)
+            if export.row_count
+            else HistoricalDataset(records=(), checksum=export.checksum, seasons=())
+        )
     current = await _current_records(session, cutoff=cutoff)
     records = tuple(
         sorted(
@@ -342,12 +346,8 @@ def _fit_goal_state(
     records = tuple(
         replace(
             record,
-            home_club_uuid=baseline.resolve_club_uuid(
-                record.home_club_uuid, record.home_club
-            ),
-            away_club_uuid=baseline.resolve_club_uuid(
-                record.away_club_uuid, record.away_club
-            ),
+            home_club_uuid=baseline.resolve_club_uuid(record.home_club_uuid, record.home_club),
+            away_club_uuid=baseline.resolve_club_uuid(record.away_club_uuid, record.away_club),
         )
         for record in dataset.records
     )
@@ -361,9 +361,7 @@ def _fit_goal_state(
         club_names.setdefault(record.home_club_uuid, record.home_club)
         club_names.setdefault(record.away_club_uuid, record.away_club)
 
-    has_prior_season_history = any(
-        record.season != cutoff.season_label for record in records
-    )
+    has_prior_season_history = any(record.season != cutoff.season_label for record in records)
     if has_prior_season_history:
         output = walk_forward_goals(canonical, config=config, score_seasons=())
         return _GoalFit(
@@ -404,9 +402,7 @@ def _model_version(
     digest = hashlib.sha256(
         json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
-    return (
-        f"goals-local-v1-mw{cutoff.matchweek:02d}r{cutoff.revision:02d}-{digest[:12]}"
-    )
+    return f"goals-local-v1-mw{cutoff.matchweek:02d}r{cutoff.revision:02d}-{digest[:12]}"
 
 
 def _write_artifact(
@@ -619,9 +615,7 @@ async def train_next_local_goal_model(
         registry.completed_at = completed_at
         registry.error_code = None
         installation = await session.scalar(
-            select(LocalInstallation)
-            .where(LocalInstallation.singleton_key == 1)
-            .with_for_update()
+            select(LocalInstallation).where(LocalInstallation.singleton_key == 1).with_for_update()
         )
         if installation is not None:
             installation.goal_model_version = written.version

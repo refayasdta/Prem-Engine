@@ -85,9 +85,7 @@ def test_snapshot_resolves_live_provider_suffixes_to_learned_clubs() -> None:
 
     learned = model.predict(arsenal_artifact_uuid, chelsea_artifact_uuid)
     neutral = model.predict(club_uuid("unknown-home"), club_uuid("unknown-away"))
-    assert learned.outcome_probabilities.home != pytest.approx(
-        neutral.outcome_probabilities.home
-    )
+    assert learned.outcome_probabilities.home != pytest.approx(neutral.outcome_probabilities.home)
 
 
 @pytest.mark.parametrize(

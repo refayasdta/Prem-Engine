@@ -410,9 +410,7 @@ class Match(Base, TimestampMixin):
     __tablename__ = "matches"
     __table_args__ = (
         CheckConstraint("home_club_uuid <> away_club_uuid", name="different_clubs"),
-        CheckConstraint(
-            "matchweek IS NULL OR matchweek BETWEEN 1 AND 60", name="valid_matchweek"
-        ),
+        CheckConstraint("matchweek IS NULL OR matchweek BETWEEN 1 AND 60", name="valid_matchweek"),
         Index("ix_matches_season_kickoff", "season_uuid", "current_kickoff_at"),
     )
 
@@ -522,15 +520,11 @@ class LocalModelArtifact(Base, TimestampMixin):
 
     __tablename__ = "local_model_artifacts"
     __table_args__ = (
-        UniqueConstraint(
-            "model_type", "season_uuid", "cutoff_matchweek", "cutoff_revision"
-        ),
+        UniqueConstraint("model_type", "season_uuid", "cutoff_matchweek", "cutoff_revision"),
         UniqueConstraint("model_version"),
         CheckConstraint("cutoff_matchweek BETWEEN 1 AND 60", name="valid_matchweek"),
         CheckConstraint("cutoff_revision >= 1", name="valid_cutoff_revision"),
-        CheckConstraint(
-            "status IN ('running', 'succeeded', 'failed')", name="valid_status"
-        ),
+        CheckConstraint("status IN ('running', 'succeeded', 'failed')", name="valid_status"),
         CheckConstraint(
             "length(training_data_checksum) = 64 AND length(fixture_set_checksum) = 64",
             name="dataset_checksums_are_sha256",
@@ -673,20 +667,14 @@ class DeviceSimulation(Base, TimestampMixin):
             "schedule_revision_uuid",
             name="uq_device_simulations_device_match_revision",
         ),
-        CheckConstraint(
-            "state IN ('played', 'missed', 'void')", name="valid_state"
-        ),
+        CheckConstraint("state IN ('played', 'missed', 'void')", name="valid_state"),
         CheckConstraint(
             "play_classification IS NULL OR play_classification IN "
             "('pre_kickoff_user_simulation', 'in_play_user_simulation')",
             name="valid_play_classification",
         ),
-        CheckConstraint(
-            "home_goals IS NULL OR home_goals >= 0", name="nonnegative_home_score"
-        ),
-        CheckConstraint(
-            "away_goals IS NULL OR away_goals >= 0", name="nonnegative_away_score"
-        ),
+        CheckConstraint("home_goals IS NULL OR home_goals >= 0", name="nonnegative_home_score"),
+        CheckConstraint("away_goals IS NULL OR away_goals >= 0", name="nonnegative_away_score"),
         CheckConstraint(
             "presentation_duration_seconds > 0",
             name="positive_presentation_duration",
@@ -699,9 +687,7 @@ class DeviceSimulation(Base, TimestampMixin):
         Index("ix_device_simulations_device_created", "device_uuid", "created_at"),
     )
 
-    device_simulation_uuid: Mapped[UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid4
-    )
+    device_simulation_uuid: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     device_uuid: Mapped[UUID] = mapped_column(Uuid, index=True)
     match_uuid: Mapped[UUID] = mapped_column(
         ForeignKey("matches.match_uuid", ondelete="CASCADE"), index=True
@@ -718,9 +704,7 @@ class DeviceSimulation(Base, TimestampMixin):
     voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     void_reason: Mapped[str | None] = mapped_column(String(120))
     feature_cutoff_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    latest_source_observed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
+    latest_source_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     feature_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     feature_snapshot_checksum: Mapped[str | None] = mapped_column(String(64))
     model_version: Mapped[str | None] = mapped_column(String(120))
@@ -742,12 +726,8 @@ class DeviceSimulation(Base, TimestampMixin):
     statistics: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     events: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     simulation_checksum: Mapped[str | None] = mapped_column(String(64))
-    presentation_started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
-    presentation_duration_seconds: Mapped[int] = mapped_column(
-        SmallInteger, default=60
-    )
+    presentation_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    presentation_duration_seconds: Mapped[int] = mapped_column(SmallInteger, default=60)
 
 
 class StandingsSnapshot(Base):
